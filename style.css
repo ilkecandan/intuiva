@@ -970,3 +970,44 @@ body {
         justify-content: center;
     }
 }
+
+
+/* Add to style.css */
+.ai-status {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.ai-status.online {
+    background: rgba(16, 185, 129, 0.2);
+    color: var(--success-color);
+}
+
+.ai-status.offline {
+    background: rgba(239, 68, 68, 0.2);
+    color: var(--danger-color);
+}
+
+.ai-status.connecting {
+    background: rgba(245, 158, 11, 0.2);
+    color: var(--warning-color);
+    animation: pulse 2s infinite;
+}
+
+/* Loading animation for answer submission */
+.loading-dots:after {
+    content: '.';
+    animation: dots 1.5s steps(5, end) infinite;
+}
+
+@keyframes dots {
+    0%, 20% { content: '.'; }
+    40% { content: '..'; }
+    60% { content: '...'; }
+    80%, 100% { content: ''; }
+}
