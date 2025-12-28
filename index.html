@@ -1,1 +1,339 @@
-ind
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Intuiva - AI-Powered Project Management</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#4f46e5">
+</head>
+<body>
+    <!-- Onboarding Questions Modal -->
+    <div id="onboardingModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-rocket"></i> Intuiva Project Setup</h2>
+                <p class="subtitle">Answer these questions to generate your personalized Kanban board</p>
+            </div>
+            
+            <div class="questions-container">
+                <div class="progress-container">
+                    <div class="progress-bar" id="progressBar"></div>
+                    <div class="progress-text">Question <span id="currentQuestion">1</span> of <span id="totalQuestions">20</span></div>
+                </div>
+                
+                <div class="question-card" id="questionCard">
+                    <h3 id="questionTitle"></h3>
+                    <p id="questionDescription"></p>
+                    
+                    <div class="answer-section">
+                        <textarea id="answerInput" placeholder="Type your answer here... (You can also skip this question)"></textarea>
+                        <div class="word-count" id="wordCount">0 words</div>
+                    </div>
+                    
+                    <div class="question-controls">
+                        <button id="skipBtn" class="btn-secondary">
+                            <i class="fas fa-forward"></i> Skip Question
+                        </button>
+                        <div class="primary-controls">
+                            <button id="prevBtn" class="btn-secondary">
+                                <i class="fas fa-arrow-left"></i> Previous
+                            </button>
+                            <button id="nextBtn" class="btn-primary">
+                                Next <i class="fas fa-arrow-right"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="question-navigation">
+                        <div class="nav-dots" id="navDots"></div>
+                    </div>
+                </div>
+                
+                <div class="question-info">
+                    <p><i class="fas fa-lightbulb"></i> <strong>Tip:</strong> Be specific in your answers. The AI will use these to generate relevant tasks for your project.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App (Hidden Initially) -->
+    <div id="appContainer" class="hidden">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <div class="logo">
+                    <i class="fas fa-brain"></i>
+                    <h1>Intuiva</h1>
+                </div>
+                <div class="project-info">
+                    <span class="project-tag" id="projectName">Project Dashboard</span>
+                    <div class="status-indicator" id="aiStatus">
+                        <div class="status-dot"></div>
+                        <span>AI Ready</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="header-right">
+                <button id="addTaskBtn" class="btn-primary">
+                    <i class="fas fa-plus"></i> Add Task
+                </button>
+                <button id="settingsBtn" class="btn-icon">
+                    <i class="fas fa-cog"></i>
+                </button>
+                <div class="user-avatar">
+                    <i class="fas fa-user"></i>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Stats Dashboard -->
+            <div class="stats-container">
+                <div class="stat-card">
+                    <div class="stat-icon todo">
+                        <i class="fas fa-list"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="todoCount">0</h3>
+                        <p>To Do</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon progress">
+                        <i class="fas fa-sync-alt"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="progressCount">0</h3>
+                        <p>In Progress</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon done">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="doneCount">0</h3>
+                        <p>Done</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon ai">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="totalCount">0</h3>
+                        <p>Total Tasks</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Kanban Board -->
+            <div class="kanban-board">
+                <!-- To Do Column -->
+                <div class="column todo-column">
+                    <div class="column-header">
+                        <h3><i class="fas fa-list"></i> To Do</h3>
+                        <span class="column-count" id="todoColumnCount">0</span>
+                        <div class="column-actions">
+                            <button class="add-task-column" data-column="todo">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="column-content" id="todoColumn" data-column="todo">
+                        <!-- Tasks will be added here dynamically -->
+                    </div>
+                </div>
+
+                <!-- In Progress Column -->
+                <div class="column progress-column">
+                    <div class="column-header">
+                        <h3><i class="fas fa-sync-alt"></i> In Progress</h3>
+                        <span class="column-count" id="progressColumnCount">0</span>
+                        <div class="column-actions">
+                            <button class="add-task-column" data-column="progress">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="column-content" id="progressColumn" data-column="progress">
+                        <!-- Tasks will be added here dynamically -->
+                    </div>
+                </div>
+
+                <!-- Done Column -->
+                <div class="column done-column">
+                    <div class="column-header">
+                        <h3><i class="fas fa-check-circle"></i> Done</h3>
+                        <span class="column-count" id="doneColumnCount">0</span>
+                        <div class="column-actions">
+                            <button class="add-task-column" data-column="done">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="column-content" id="doneColumn" data-column="done">
+                        <!-- Tasks will be added here dynamically -->
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Task Modal -->
+        <div id="taskModal" class="modal hidden">
+            <div class="modal-content task-modal">
+                <div class="modal-header">
+                    <h3 id="taskModalTitle">Add New Task</h3>
+                    <button class="close-modal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <form id="taskForm">
+                        <div class="form-group">
+                            <label for="taskTitle">Task Title *</label>
+                            <input type="text" id="taskTitle" required placeholder="What needs to be done?">
+                        </div>
+                        <div class="form-group">
+                            <label for="taskDescription">Description</label>
+                            <textarea id="taskDescription" placeholder="Add details, requirements, or notes..."></textarea>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="taskPriority">Priority</label>
+                                <select id="taskPriority">
+                                    <option value="low">Low</option>
+                                    <option value="medium" selected>Medium</option>
+                                    <option value="high">High</option>
+                                    <option value="critical">Critical</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="taskAssignee">Assignee</label>
+                                <select id="taskAssignee">
+                                    <option value="unassigned">Unassigned</option>
+                                    <option value="john">John</option>
+                                    <option value="sarah">Sarah</option>
+                                    <option value="mike">Mike</option>
+                                    <option value="emma">Emma</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="taskDueDate">Due Date</label>
+                                <input type="date" id="taskDueDate">
+                            </div>
+                            <div class="form-group">
+                                <label for="taskColumn">Column</label>
+                                <select id="taskColumn">
+                                    <option value="todo">To Do</option>
+                                    <option value="progress">In Progress</option>
+                                    <option value="done">Done</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="taskTags">Tags (comma separated)</label>
+                            <input type="text" id="taskTags" placeholder="design, frontend, bug, etc.">
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" class="btn-secondary close-modal">Cancel</button>
+                            <button type="submit" class="btn-primary" id="taskSubmitBtn">Save Task</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- AI Processing Modal -->
+        <div id="aiProcessingModal" class="modal hidden">
+            <div class="modal-content ai-modal">
+                <div class="ai-processing">
+                    <div class="ai-spinner">
+                        <div class="spinner"></div>
+                    </div>
+                    <h3><i class="fas fa-robot"></i> AI is analyzing your answers</h3>
+                    <p id="aiStatusMessage">Generating your personalized Kanban board...</p>
+                    <div class="ai-progress">
+                        <div class="ai-progress-bar" id="aiProgressBar"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Modal -->
+        <div id="settingsModal" class="modal hidden">
+            <div class="modal-content settings-modal">
+                <div class="modal-header">
+                    <h3><i class="fas fa-cog"></i> Settings</h3>
+                    <button class="close-modal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="settings-section">
+                        <h4>Board Settings</h4>
+                        <div class="setting-item">
+                            <label for="boardName">Project Name</label>
+                            <input type="text" id="boardName" value="My Project">
+                        </div>
+                        <div class="setting-item">
+                            <label>
+                                <input type="checkbox" id="enableWIP" checked>
+                                Enable WIP Limits
+                            </label>
+                        </div>
+                        <div class="setting-item">
+                            <label>WIP Limits</label>
+                            <div class="wip-limits">
+                                <div>
+                                    <label>To Do</label>
+                                    <input type="number" id="wipTodo" value="10" min="1">
+                                </div>
+                                <div>
+                                    <label>In Progress</label>
+                                    <input type="number" id="wipProgress" value="3" min="1">
+                                </div>
+                                <div>
+                                    <label>Done</label>
+                                    <input type="number" id="wipDone" value="20" min="1">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="settings-section">
+                        <h4>AI Integration</h4>
+                        <div class="setting-item">
+                            <label for="aiModel">AI Model</label>
+                            <select id="aiModel">
+                                <option value="deepseek">DeepSeek</option>
+                                <option value="openai">OpenAI</option>
+                                <option value="claude">Claude</option>
+                            </select>
+                        </div>
+                        <div class="setting-item">
+                            <label>
+                                <input type="checkbox" id="autoGenerate" checked>
+                                Auto-generate tasks from meetings
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="settings-actions">
+                        <button class="btn-secondary close-modal">Close</button>
+                        <button class="btn-primary" id="saveSettings">Save Changes</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Toast Notification -->
+        <div id="toast" class="toast hidden"></div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
