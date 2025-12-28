@@ -76,6 +76,22 @@ document.getElementById('skipBtn').addEventListener('click', () => {
     
     // Navigate to kanban board
     this.navigateTo('kanbanBoard');
+
+// Clear All button (if you added it)
+if (document.getElementById('clearAllBtn')) {
+    document.getElementById('clearAllBtn').addEventListener('click', () => {
+        if (confirm('Are you sure you want to clear all tasks? This cannot be undone.')) {
+            this.tasks = [];
+            if (this.kanbanBoard) {
+                this.kanbanBoard.clearTasks();
+            }
+            this.updateStats();
+            this.saveToLocalStorage();
+            this.showToast('All tasks cleared', 'info');
+        }
+    });
+}
+
     
     // Force an empty board
     if (this.kanbanBoard) {
