@@ -976,22 +976,8 @@ class KanbanBoard {
 }
 
 // Initialize the app when DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
-    window.app = new IntuivaApp();
-});
 
-// Register service worker helpers
-if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.ready.then(() => {
-        // Register background sync
-        if ('SyncManager' in window) {
-            window.serviceWorkerHelpers?.registerBackgroundSync();
-        }
-        
-        // Request notification permission
-        window.serviceWorkerHelpers?.requestNotificationPermission();
-    });
-}
+
 
 // Handle online/offline status
 window.addEventListener('online', () => {
