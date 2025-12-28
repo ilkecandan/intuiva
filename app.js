@@ -1,171 +1,632 @@
-// Main Application Controller
 class IntuivaApp {
     constructor() {
         this.currentQuestionIndex = 0;
-        this.answers = [];
+        this.answers = {};
         this.tasks = [];
-        this.projects = [];
-        this.currentProject = null;
+        this.kanbanBoard = null;
+        this.isGeneratingTasks = false;
         
         this.init();
     }
     
     init() {
-        this.cacheElements();
-        this.bindEvents();
-        this.loadExistingData();
-        this.setupTheme();
-        this.checkPWAInstall();
-        this.showFirstQuestion();
+        // Initialize screens
+        this.screens = {
+            onboarding: document.getElementById('onboarding'),
+            questionnaire: document.getElementById('questionnaire'),
+            kanbanBoard: document.getElementById('kanbanBoard')
+        };
+        
+        // Initialize buttons
+        this.initButtons();
+        
+        // Initialize questionnaire
+        this.initQuestionnaire();
+        
+        // Initialize modals
+        this.initModals();
+        
+        // Initialize drag and drop
+        this.initDragAndDrop();
+        
+        // Show onboarding screen
+        this.showScreen('onboarding');
+        
+        // Check for existing data
+        this.loadFromLocalStorage();
+        
+        // Initialize theme
+        this.initTheme();
+        
+        // Update character counter
+        this.initCharCounter();
+        
+        console.log('Intuiva App initialized successfully');
     }
     
-    cacheElements() {
-        // Questionnaire elements
-        this.questionText = document.getElementById('questionText');
-        this.answerInput = document.getElementById('answerInput');
-        this.charCount = document.getElementById('charCount');
-        this.questionCounter = document.getElementById('questionCounter');
-        this.categoryBadge = document.getElementById('categoryBadge');
-        this.progressFill = document.getElementById('progressFill');
-        this.sectionInfo = document.getElementById('sectionInfo');
-        
-        // Navigation buttons
-        this.prevBtn = document.getElementById('prevBtn');
-        this.nextBtn = document.getElementById('nextBtn');
-        this.skipBtn = document.getElementById('skipBtn');
-        
-        // Sections
-        this.questionnaireSection = document.getElementById('questionnaireSection');
-        this.kanbanSection = document.getElementById('kanbanSection');
-        this.loadingScreen = document.getElementById('loadingScreen');
-        
-        // Controls
-        this.newProjectBtn = document.getElementById('newProjectBtn');
-        this.exportBtn = document.getElementById('exportBtn');
-        this.themeToggle = document.getElementById('themeToggle');
-        this.addTaskBtn = document.getElementById('addTaskBtn');
-        
-        // Category pills
-        this.categoryPills = document.querySelectorAll('.category-pill');
-        
-        // Stats
-        this.totalTasks = document.getElementById('totalTasks');
-        this.inProgressTasks = document.getElementById('inProgressTasks');
-        this.doneTasks = document.getElementById('doneTasks');
-    }
-    
-    bindEvents() {
-        // Navigation events
-        this.prevBtn.addEventListener('click', () => this.showPreviousQuestion());
-        this.nextBtn.addEventListener('click', () => this.showNextQuestion());
-        this.skipBtn.addEventListener('click', () => this.skipQuestion());
-        
-        // Input events
-        this.answerInput.addEventListener('input', () => this.updateCharCount());
-        this.answerInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && e.shiftKey) {
-                // Allow Shift+Enter for new lines
-                return;
-            } else if (e.key === 'Enter') {
-                e.preventDefault();
-                this.showNextQuestion();
-            }
+    initButtons() {
+        // Start button
+        document.getElementById('startBtn').addEventListener('click', () => {
+            this.showScreen('questionnaire');
+            this.loadQuestion(0);
         });
         
-        // Control events
-        this.newProjectBtn.addEventListener('click', () => this.startNewProject());
-        this.exportBtn.addEventListener('click', () => this.exportData());
-        this.themeToggle.addEventListener('click', () => this.toggleTheme());
-        this.addTaskBtn.addEventListener('click', () => window.kanbanBoard?.showTaskModal());
+        // Skip to board button
+        document.getElementById('skipBtn').addEventListener('click', () => {
+            this.tasks = this.generateDefaultTasks();
+            this.showKanbanBoard();
+        });
         
-        // Category navigation
-        this.categoryPills.forEach(pill => {
-            pill.addEventListener('click', (e) => {
-                const categoryId = parseInt(e.target.dataset.category);
-                this.jumpToCategory(categoryId);
+        // Navigation buttons
+        document.getElementById('prevBtn').addEventListener('click', () => this.prevQuestion());
+        document.getElementById('nextBtn').addEventListener('click', () => this.nextQuestion());
+        
+        // Question action buttons
+        document.getElementById('skipQuestionBtn').addEventListener('click', () => this.skipQuestion());
+        document.getElementById('notAnswerBtn').addEventListener('click', () => this.markAsNotApplicable());
+        document.getElementById('clearBtn').addEventListener('click', () => this.clearAnswer());
+        
+        // Board action buttons
+        document.getElementById('addTaskBtn').addEventListener('click', () => this.openTaskModal());
+        document.getElementById('regenerateBtn').addEventListener('click', () => this.regenerateTasks());
+        document.getElementById('exportBtn').addEventListener('click', () => this.exportBoard());
+        
+        // Add task buttons in columns
+        document.querySelectorAll('.btn-add-task').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const column = e.currentTarget.dataset.column;
+                this.openTaskModal(column);
             });
         });
         
-        // Install prompt
-        document.getElementById('installBtn')?.addEventListener('click', () => {
-            window.serviceWorkerHelpers?.installApp();
+        // Theme toggle
+        document.getElementById('themeToggle').addEventListener('click', () => this.toggleTheme());
+        
+        // Help button
+        document.getElementById('helpBtn').addEventListener('click', () => {
+            document.getElementById('helpModal').classList.add('active');
+        });
+    }
+    
+    initQuestionnaire() {
+        this.questions = QUESTIONS;
+        this.totalQuestions = this.questions.length;
+        
+        // Initialize answer input event
+        const answerInput = document.getElementById('answerInput');
+        answerInput.addEventListener('input', (e) => {
+            this.saveAnswer(e.target.value);
+            this.updateCharCounter();
         });
         
-        document.getElementById('dismissInstall')?.addEventListener('click', () => {
-            document.getElementById('installPrompt').classList.remove('active');
-        });
-        
-        // Task modal events
-        document.getElementById('cancelTaskBtn')?.addEventListener('click', () => {
-            document.getElementById('taskModal').classList.remove('active');
-        });
-        
-        document.querySelector('.close-modal')?.addEventListener('click', () => {
-            document.getElementById('taskModal').classList.remove('active');
-        });
-        
-        document.getElementById('saveTaskBtn')?.addEventListener('click', () => {
-            window.kanbanBoard?.saveNewTask();
-        });
-        
-        // Search functionality
-        document.getElementById('taskSearch')?.addEventListener('input', (e) => {
-            window.kanbanBoard?.filterTasks(e.target.value);
-        });
-        
-        // Keyboard shortcuts
-        document.addEventListener('keydown', (e) => {
-            // Ctrl/Cmd + N for new project
-            if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+        // Add keyboard shortcuts
+        answerInput.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key === 'Enter') {
                 e.preventDefault();
-                this.startNewProject();
-            }
-            
-            // Ctrl/Cmd + E for export
-            if ((e.ctrlKey || e.metaKey) && e.key === 'e') {
-                e.preventDefault();
-                this.exportData();
-            }
-            
-            // Escape to close modal
-            if (e.key === 'Escape') {
-                const modal = document.getElementById('taskModal');
-                if (modal.classList.contains('active')) {
-                    modal.classList.remove('active');
-                }
+                this.nextQuestion();
+            } else if (e.key === 'Escape') {
+                this.clearAnswer();
             }
         });
     }
     
-    loadExistingData() {
-        // Load existing project if available
-        const savedProject = DataUtils.loadFromStorage('current_project');
-        const savedAnswers = DataUtils.loadFromStorage('answers');
-        const savedTasks = DataUtils.loadFromStorage('tasks');
+    initModals() {
+        // Task modal
+        this.taskModal = document.getElementById('taskModal');
+        this.taskForm = document.getElementById('taskForm');
         
-        if (savedProject && savedAnswers && savedAnswers.length > 0) {
-            this.currentProject = savedProject;
-            this.answers = savedAnswers;
-            this.tasks = savedTasks || [];
-            
-            // If all questions answered, show kanban
-            if (this.answers.length >= QUESTIONS.length) {
-                this.showKanbanBoard();
-            } else {
-                // Continue where left off
-                this.currentQuestionIndex = this.answers.length;
-                this.showQuestion(this.currentQuestionIndex);
-            }
+        // Close modal buttons
+        document.querySelectorAll('.close-modal').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.modal').forEach(modal => {
+                    modal.classList.remove('active');
+                });
+                this.taskForm.reset();
+            });
+        });
+        
+        // Close modals on outside click
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.classList.remove('active');
+                    this.taskForm.reset();
+                }
+            });
+        });
+        
+        // Task form submission
+        this.taskForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.saveTask();
+        });
+        
+        // Help modal
+        this.helpModal = document.getElementById('helpModal');
+    }
+    
+    initDragAndDrop() {
+        // This will be initialized by the KanbanBoard class
+    }
+    
+    initTheme() {
+        const savedTheme = localStorage.getItem('intuiva-theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+        
+        // Update theme toggle icon
+        const themeIcon = document.querySelector('#themeToggle i');
+        themeIcon.className = savedTheme === 'dark' ? 'fas fa-moon' : 'fas fa-sun';
+    }
+    
+    initCharCounter() {
+        this.updateCharCounter();
+    }
+    
+    showScreen(screenName) {
+        // Hide all screens
+        Object.values(this.screens).forEach(screen => {
+            screen.classList.remove('active');
+        });
+        
+        // Show requested screen
+        if (this.screens[screenName]) {
+            this.screens[screenName].classList.add('active');
+        }
+        
+        // Initialize kanban board if showing kanban
+        if (screenName === 'kanbanBoard' && !this.kanbanBoard) {
+            this.kanbanBoard = new KanbanBoard(this.tasks);
         }
     }
     
-    setupTheme() {
-        const savedTheme = localStorage.getItem('intuiva_theme') || 'light';
-        document.documentElement.setAttribute('data-theme', savedTheme);
+    loadQuestion(index) {
+        if (index < 0 || index >= this.totalQuestions) {
+            this.showKanbanBoard();
+            return;
+        }
         
-        // Update toggle button icon
-        const icon = this.themeToggle.querySelector('i');
-        icon.className = savedTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+        this.currentQuestionIndex = index;
+        const question = this.questions[index];
+        
+        // Update UI
+        document.getElementById('questionNumber').textContent = `Q${index + 1}`;
+        document.getElementById('questionTitle').textContent = question.category;
+        document.getElementById('questionText').textContent = question.text;
+        document.getElementById('categoryTitle').textContent = question.category;
+        
+        // Update progress
+        const progress = ((index + 1) / this.totalQuestions) * 100;
+        document.getElementById('progressFill').style.width = `${progress}%`;
+        document.getElementById('progressText').textContent = `Question ${index + 1} of ${this.totalQuestions}`;
+        
+        // Load saved answer
+        const answerInput = document.getElementById('answerInput');
+        answerInput.value = this.answers[index] || '';
+        answerInput.focus();
+        
+        // Update character counter
+        this.updateCharCounter();
+        
+        // Update button states
+        document.getElementById('prevBtn').disabled = index === 0;
+        
+        // Update next button text for last question
+        document.getElementById('nextBtn').innerHTML = index === this.totalQuestions - 1 
+            ? 'Generate Kanban Board <i class="fas fa-arrow-right"></i>' 
+            : 'Next <i class="fas fa-arrow-right"></i>';
+    }
+    
+    prevQuestion() {
+        if (this.currentQuestionIndex > 0) {
+            this.loadQuestion(this.currentQuestionIndex - 1);
+        }
+    }
+    
+    nextQuestion() {
+        // Save current answer
+        this.saveAnswer(document.getElementById('answerInput').value);
+        
+        if (this.currentQuestionIndex < this.totalQuestions - 1) {
+            this.loadQuestion(this.currentQuestionIndex + 1);
+        } else {
+            // Generate tasks from answers
+            this.generateTasksFromAnswers();
+        }
+    }
+    
+    skipQuestion() {
+        this.answers[this.currentQuestionIndex] = '[Skipped]';
+        this.nextQuestion();
+    }
+    
+    markAsNotApplicable() {
+        this.answers[this.currentQuestionIndex] = '[Not Applicable]';
+        this.nextQuestion();
+    }
+    
+    clearAnswer() {
+        document.getElementById('answerInput').value = '';
+        delete this.answers[this.currentQuestionIndex];
+        this.updateCharCounter();
+        document.getElementById('answerInput').focus();
+    }
+    
+    saveAnswer(answer) {
+        if (answer && answer.trim()) {
+            this.answers[this.currentQuestionIndex] = answer.trim();
+        } else {
+            delete this.answers[this.currentQuestionIndex];
+        }
+        
+        // Save to localStorage
+        this.saveToLocalStorage();
+    }
+    
+    updateCharCounter() {
+        const text = document.getElementById('answerInput').value;
+        const charCount = text.length;
+        const maxChars = 500;
+        
+        document.getElementById('charCount').textContent = `${charCount}/${maxChars}`;
+        
+        // Update color based on length
+        const charCountElement = document.getElementById('charCount');
+        if (charCount > maxChars * 0.9) {
+            charCountElement.style.color = 'var(--color-error)';
+        } else if (charCount > maxChars * 0.75) {
+            charCountElement.style.color = 'var(--color-warning)';
+        } else {
+            charCountElement.style.color = 'var(--color-text-muted)';
+        }
+    }
+    
+    generateTasksFromAnswers() {
+        if (this.isGeneratingTasks) return;
+        
+        this.isGeneratingTasks = true;
+        
+        // Show loading state
+        const nextBtn = document.getElementById('nextBtn');
+        const originalHtml = nextBtn.innerHTML;
+        nextBtn.innerHTML = '<div class="loading"></div> Generating Tasks...';
+        nextBtn.disabled = true;
+        
+        // Simulate AI processing (in a real app, this would call an API)
+        setTimeout(() => {
+            this.tasks = this.generateTasksBasedOnAnswers();
+            this.showKanbanBoard();
+            
+            // Reset button
+            nextBtn.innerHTML = originalHtml;
+            nextBtn.disabled = false;
+            this.isGeneratingTasks = false;
+            
+            this.showToast('Tasks generated successfully!', 'success');
+        }, 1500);
+    }
+    
+    generateTasksBasedOnAnswers() {
+        const tasks = [];
+        
+        // Analyze answers and generate relevant tasks
+        Object.entries(this.answers).forEach(([index, answer]) => {
+            if (answer === '[Skipped]' || answer === '[Not Applicable]') return;
+            
+            const question = this.questions[parseInt(index)];
+            const category = question.category;
+            
+            // Generate tasks based on category and answer
+            const categoryTasks = this.generateTasksForCategory(category, answer);
+            tasks.push(...categoryTasks);
+        });
+        
+        // Add default tasks if no answers generated tasks
+        if (tasks.length === 0) {
+            return this.generateDefaultTasks();
+        }
+        
+        // Remove duplicates based on title
+        const uniqueTasks = [];
+        const titles = new Set();
+        
+        tasks.forEach(task => {
+            if (!titles.has(task.title)) {
+                titles.add(task.title);
+                uniqueTasks.push(task);
+            }
+        });
+        
+        return uniqueTasks;
+    }
+    
+    generateTasksForCategory(category, answer) {
+        const tasks = [];
+        
+        // Simplified AI-like task generation
+        // In a real app, this would use NLP or an AI API
+        
+        if (category.includes('Understanding Value')) {
+            tasks.push(
+                {
+                    id: this.generateId(),
+                    title: 'Define primary customer personas',
+                    description: 'Create detailed profiles for primary and secondary users based on project requirements',
+                    status: 'todo',
+                    priority: 'high',
+                    tags: ['planning', 'research', 'customer']
+                },
+                {
+                    id: this.generateId(),
+                    title: 'Document key success metrics',
+                    description: 'Define measurable KPIs and success criteria for the project',
+                    status: 'todo',
+                    priority: 'medium',
+                    tags: ['metrics', 'planning']
+                }
+            );
+        } else if (category.includes('VALUE STREAM')) {
+            tasks.push(
+                {
+                    id: this.generateId(),
+                    title: 'Map current workflow process',
+                    description: 'Document existing process steps and identify bottlenecks',
+                    status: 'todo',
+                    priority: 'high',
+                    tags: ['process', 'analysis']
+                },
+                {
+                    id: this.generateId(),
+                    title: 'Identify dependencies and risks',
+                    description: 'List all external dependencies and potential risks with mitigation strategies',
+                    status: 'todo',
+                    priority: 'medium',
+                    tags: ['risk', 'dependencies']
+                }
+            );
+        } else if (category.includes('FLOW')) {
+            tasks.push(
+                {
+                    id: this.generateId(),
+                    title: 'Set up Kanban board workflow',
+                    description: 'Configure columns, WIP limits, and workflow rules',
+                    status: 'todo',
+                    priority: 'high',
+                    tags: ['setup', 'workflow']
+                },
+                {
+                    id: this.generateId(),
+                    title: 'Define Definition of Ready/Done',
+                    description: 'Create clear criteria for when work can start and when it is complete',
+                    status: 'todo',
+                    priority: 'medium',
+                    tags: ['quality', 'process']
+                }
+            );
+        } else if (category.includes('PULL')) {
+            tasks.push(
+                {
+                    id: this.generateId(),
+                    title: 'Establish backlog prioritization process',
+                    description: 'Define how work items will be prioritized and pulled into the workflow',
+                    status: 'todo',
+                    priority: 'medium',
+                    tags: ['process', 'prioritization']
+                }
+            );
+        } else if (category.includes('PERFECTION')) {
+            tasks.push(
+                {
+                    id: this.generateId(),
+                    title: 'Set up feedback collection process',
+                    description: 'Create system for gathering and incorporating user feedback',
+                    status: 'todo',
+                    priority: 'medium',
+                    tags: ['feedback', 'improvement']
+                },
+                {
+                    id: this.generateId(),
+                    title: 'Define retrospective schedule',
+                    description: 'Schedule regular improvement meetings and define format',
+                    status: 'todo',
+                    priority: 'low',
+                    tags: ['retrospective', 'improvement']
+                }
+            );
+        } else if (category.includes('Team & Mindset')) {
+            tasks.push(
+                {
+                    id: this.generateId(),
+                    title: 'Conduct team skill assessment',
+                    description: 'Evaluate current skills and identify training needs',
+                    status: 'todo',
+                    priority: 'medium',
+                    tags: ['team', 'skills']
+                },
+                {
+                    id: this.generateId(),
+                    title: 'Create risk mitigation plan',
+                    description: 'Document potential risks and create mitigation strategies',
+                    status: 'todo',
+                    priority: 'high',
+                    tags: ['risk', 'planning']
+                }
+            );
+        }
+        
+        return tasks;
+    }
+    
+    generateDefaultTasks() {
+        return [
+            {
+                id: this.generateId(),
+                title: 'Define project scope and objectives',
+                description: 'Clearly document what the project will and will not deliver',
+                status: 'todo',
+                priority: 'high',
+                tags: ['planning', 'scope']
+            },
+            {
+                id: this.generateId(),
+                title: 'Identify key stakeholders',
+                description: 'List all stakeholders and define communication plan',
+                status: 'todo',
+                priority: 'medium',
+                tags: ['stakeholders', 'communication']
+            },
+            {
+                id: this.generateId(),
+                title: 'Set up project repository',
+                description: 'Create Git repository with proper branching strategy',
+                status: 'todo',
+                priority: 'high',
+                tags: ['setup', 'development']
+            },
+            {
+                id: this.generateId(),
+                title: 'Create initial project timeline',
+                description: 'Develop high-level timeline with key milestones',
+                status: 'todo',
+                priority: 'medium',
+                tags: ['planning', 'timeline']
+            },
+            {
+                id: this.generateId(),
+                title: 'Define success metrics',
+                description: 'Establish KPIs to measure project success',
+                status: 'todo',
+                priority: 'high',
+                tags: ['metrics', 'planning']
+            }
+        ];
+    }
+    
+    showKanbanBoard() {
+        this.showScreen('kanbanBoard');
+        
+        // Update board stats
+        this.updateStats();
+        
+        // Save tasks to localStorage
+        this.saveToLocalStorage();
+    }
+    
+    updateStats() {
+        if (!this.kanbanBoard) return;
+        
+        const stats = this.kanbanBoard.getStats();
+        
+        document.getElementById('totalTasks').textContent = stats.total;
+        document.getElementById('doneTasks').textContent = stats.done;
+        document.getElementById('wipTasks').textContent = stats.inProgress;
+        
+        // Update column counts
+        document.getElementById('todoCount').textContent = stats.todo;
+        document.getElementById('inprogressCount').textContent = stats.inProgress;
+        document.getElementById('doneCount').textContent = stats.done;
+    }
+    
+    openTaskModal(status = 'todo') {
+        this.taskModal.classList.add('active');
+        document.getElementById('taskStatus').value = status;
+        document.getElementById('taskTitle').focus();
+    }
+    
+    saveTask() {
+        const title = document.getElementById('taskTitle').value.trim();
+        const description = document.getElementById('taskDescription').value.trim();
+        const priority = document.getElementById('taskPriority').value;
+        const status = document.getElementById('taskStatus').value;
+        const tags = document.getElementById('taskTags').value
+            .split(',')
+            .map(tag => tag.trim())
+            .filter(tag => tag);
+        
+        if (!title) {
+            this.showToast('Task title is required', 'error');
+            return;
+        }
+        
+        const task = {
+            id: this.generateId(),
+            title,
+            description,
+            priority,
+            status,
+            tags,
+            createdAt: new Date().toISOString()
+        };
+        
+        // Add task to board
+        this.kanbanBoard.addTask(task);
+        
+        // Update stats
+        this.updateStats();
+        
+        // Close modal and reset form
+        this.taskModal.classList.remove('active');
+        this.taskForm.reset();
+        
+        this.showToast('Task added successfully!', 'success');
+        
+        // Save to localStorage
+        this.saveToLocalStorage();
+    }
+    
+    regenerateTasks() {
+        if (this.isGeneratingTasks) return;
+        
+        this.isGeneratingTasks = true;
+        
+        // Show loading state
+        const btn = document.getElementById('regenerateBtn');
+        const originalHtml = btn.innerHTML;
+        btn.innerHTML = '<div class="loading"></div> Regenerating...';
+        btn.disabled = true;
+        
+        // Simulate AI regeneration
+        setTimeout(() => {
+            // Clear existing tasks
+            this.kanbanBoard.clearTasks();
+            
+            // Generate new tasks from answers
+            const newTasks = this.generateTasksBasedOnAnswers();
+            
+            // Add new tasks to board
+            newTasks.forEach(task => {
+                this.kanbanBoard.addTask(task);
+            });
+            
+            // Update stats
+            this.updateStats();
+            
+            // Reset button
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+            this.isGeneratingTasks = false;
+            
+            this.showToast('Tasks regenerated based on your answers!', 'success');
+        }, 2000);
+    }
+    
+    exportBoard() {
+        const data = {
+            answers: this.answers,
+            tasks: this.tasks,
+            exportedAt: new Date().toISOString()
+        };
+        
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `intuiva-board-${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        this.showToast('Board exported successfully!', 'success');
     }
     
     toggleTheme() {
@@ -173,829 +634,82 @@ class IntuivaApp {
         const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
         
         document.documentElement.setAttribute('data-theme', newTheme);
-        localStorage.setItem('intuiva_theme', newTheme);
+        localStorage.setItem('intuiva-theme', newTheme);
         
-        // Update toggle button icon
-        const icon = this.themeToggle.querySelector('i');
-        icon.className = newTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+        // Update icon
+        const themeIcon = document.querySelector('#themeToggle i');
+        themeIcon.className = newTheme === 'dark' ? 'fas fa-moon' : 'fas fa-sun';
         
-        this.showToast(`Switched to ${newTheme} theme`, 'success');
-    }
-    
-    showFirstQuestion() {
-        if (this.answers.length === 0) {
-            this.showQuestion(0);
-        }
-    }
-    
-    showQuestion(index) {
-        if (index < 0 || index >= QUESTIONS.length) return;
-        
-        this.currentQuestionIndex = index;
-        const question = QUESTIONS[index];
-        
-        // Update question text
-        this.questionText.textContent = question.text;
-        
-        // Update counter
-        this.questionCounter.textContent = `Question ${index + 1}/${QUESTIONS.length}`;
-        
-        // Update category badge
-        this.categoryBadge.textContent = question.category;
-        
-        // Update progress bar
-        const progress = ((index + 1) / QUESTIONS.length) * 100;
-        this.progressFill.style.width = `${progress}%`;
-        
-        // Update section info
-        this.sectionInfo.textContent = question.description;
-        
-        // Load existing answer if any
-        const existingAnswer = this.answers.find(a => a.questionId === question.id);
-        this.answerInput.value = existingAnswer?.text || '';
-        this.updateCharCount();
-        
-        // Update navigation buttons
-        this.prevBtn.disabled = index === 0;
-        
-        // Update category pills
-        this.updateActiveCategory(question.categoryId);
-        
-        // Focus on input
-        setTimeout(() => {
-            this.answerInput.focus();
-        }, 100);
-    }
-    
-    showNextQuestion() {
-        this.saveCurrentAnswer();
-        
-        if (this.currentQuestionIndex < QUESTIONS.length - 1) {
-            this.showQuestion(this.currentQuestionIndex + 1);
-        } else {
-            this.completeQuestionnaire();
-        }
-    }
-    
-    showPreviousQuestion() {
-        this.saveCurrentAnswer();
-        
-        if (this.currentQuestionIndex > 0) {
-            this.showQuestion(this.currentQuestionIndex - 1);
-        }
-    }
-    
-    skipQuestion() {
-        this.saveCurrentAnswer(true);
-        this.showNextQuestion();
-    }
-    
-    saveCurrentAnswer(skip = false) {
-        const question = QUESTIONS[this.currentQuestionIndex];
-        const answerText = skip ? '' : this.answerInput.value.trim();
-        
-        const existingIndex = this.answers.findIndex(a => a.questionId === question.id);
-        
-        if (existingIndex >= 0) {
-            this.answers[existingIndex] = {
-                questionId: question.id,
-                text: answerText,
-                skipped: skip,
-                timestamp: new Date().toISOString()
-            };
-        } else {
-            this.answers.push({
-                questionId: question.id,
-                text: answerText,
-                skipped: skip,
-                timestamp: new Date().toISOString()
-            });
-        }
-        
-        // Save to storage
-        DataUtils.saveToStorage('answers', this.answers);
-    }
-    
-    updateCharCount() {
-        const count = this.answerInput.value.length;
-        this.charCount.textContent = count;
-        
-        if (count > 500) {
-            this.charCount.style.color = 'var(--danger-color)';
-        } else if (count > 400) {
-            this.charCount.style.color = 'var(--warning-color)';
-        } else {
-            this.charCount.style.color = '';
-        }
-    }
-    
-    updateActiveCategory(categoryId) {
-        this.categoryPills.forEach(pill => {
-            if (parseInt(pill.dataset.category) === categoryId) {
-                pill.classList.add('active');
-            } else {
-                pill.classList.remove('active');
-            }
-        });
-    }
-    
-    jumpToCategory(categoryId) {
-        // Find first question in this category
-        const firstQuestionInCategory = QUESTIONS.findIndex(q => q.categoryId === categoryId);
-        if (firstQuestionInCategory >= 0) {
-            this.saveCurrentAnswer();
-            this.showQuestion(firstQuestionInCategory);
-        }
-    }
-    
-    completeQuestionnaire() {
-        this.showLoadingScreen();
-        
-        // Generate tasks from answers
-        setTimeout(() => {
-            this.tasks = DataUtils.generateTasksFromAnswers(this.answers);
-            
-            // Create project
-            this.currentProject = {
-                id: `project-${Date.now()}`,
-                name: 'Lean Project',
-                createdAt: new Date().toISOString(),
-                answersCount: this.answers.filter(a => !a.skipped).length,
-                totalQuestions: QUESTIONS.length
-            };
-            
-            // Save everything
-            DataUtils.saveToStorage('current_project', this.currentProject);
-            DataUtils.saveToStorage('tasks', this.tasks);
-            DataUtils.saveToStorage('answers', this.answers);
-            
-// Initialize kanban board
-window.kanbanBoard = new KanbanBoard(this.tasks);
-
-// Show kanban board
-setTimeout(() => {
-    this.hideLoadingScreen();
-    this.showKanbanBoard();
-    this.showToast('Kanban board generated successfully!', 'success');
-}, 500);
-            
-        }, 1500);
-    }
-    
-    showLoadingScreen() {
-        this.loadingScreen.classList.add('active');
-        
-        // Simulate progress
-        let progress = 0;
-        const interval = setInterval(() => {
-            progress += Math.random() * 15;
-            if (progress > 100) {
-                progress = 100;
-                clearInterval(interval);
-            }
-            
-            document.getElementById('loadingProgress').style.width = `${progress}%`;
-            document.getElementById('loadingPercent').textContent = `${Math.round(progress)}%`;
-        }, 100);
-    }
-    
-    hideLoadingScreen() {
-        this.loadingScreen.classList.remove('active');
-    }
-    
-    showKanbanBoard() {
-        this.questionnaireSection.classList.remove('active');
-        this.kanbanSection.classList.add('active');
-        
-        // Update stats
-        this.updateStats();
-    }
-    
-    showQuestionnaire() {
-        this.kanbanSection.classList.remove('active');
-        this.questionnaireSection.classList.add('active');
-    }
-    
-    startNewProject() {
-        if (this.answers.length > 0 && !confirm('Starting a new project will clear current progress. Continue?')) {
-            return;
-        }
-        
-        this.currentQuestionIndex = 0;
-        this.answers = [];
-        this.tasks = [];
-        this.currentProject = null;
-        
-        DataUtils.clearStorage();
-        
-        this.showQuestionnaire();
-        this.showQuestion(0);
-        
-        this.showToast('New project started', 'success');
-    }
-    
-updateStats() {
-    if (!window.kanbanBoard) return;
-    
-    const stats = window.kanbanBoard.getStats();
-    if (stats) {
-        this.totalTasks.textContent = stats.total;
-        this.inProgressTasks.textContent = stats.inProgress;
-        this.doneTasks.textContent = stats.done;
-    }
-}
-    
-    exportData() {
-        const exportData = {
-            project: this.currentProject,
-            answers: this.answers,
-            tasks: this.tasks,
-            exportedAt: new Date().toISOString(),
-            app: 'Intuiva',
-            version: '1.0'
-        };
-        
-        const dataStr = JSON.stringify(exportData, null, 2);
-        const dataBlob = new Blob([dataStr], { type: 'application/json' });
-        
-        const url = URL.createObjectURL(dataBlob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `intuiva-project-${new Date().toISOString().split('T')[0]}.json`;
-        
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        URL.revokeObjectURL(url);
-        
-        this.showToast('Project data exported', 'success');
+        this.showToast(`Switched to ${newTheme} theme`, 'info');
     }
     
     showToast(message, type = 'info') {
-        const container = document.getElementById('toastContainer');
-        const toast = document.createElement('div');
-        toast.className = `toast ${type}`;
+        const toast = document.getElementById('toast');
+        const toastMessage = document.getElementById('toastMessage');
         
-        let icon = 'info-circle';
-        if (type === 'success') icon = 'check-circle';
-        if (type === 'error') icon = 'exclamation-circle';
-        if (type === 'warning') icon = 'exclamation-triangle';
+        toastMessage.textContent = message;
         
-        toast.innerHTML = `
-            <i class="fas fa-${icon}"></i>
-            <span>${message}</span>
-        `;
+        // Set color based on type
+        switch (type) {
+            case 'success':
+                toast.style.borderLeftColor = 'var(--color-success)';
+                break;
+            case 'error':
+                toast.style.borderLeftColor = 'var(--color-error)';
+                break;
+            case 'warning':
+                toast.style.borderLeftColor = 'var(--color-warning)';
+                break;
+            default:
+                toast.style.borderLeftColor = 'var(--color-info)';
+        }
         
-        container.appendChild(toast);
+        toast.classList.add('active');
         
-        // Auto-remove after 5 seconds
+        // Auto hide after 3 seconds
         setTimeout(() => {
-            toast.style.opacity = '0';
-            toast.style.transform = 'translateX(30px)';
-            
-            setTimeout(() => {
-                if (toast.parentNode) {
-                    toast.remove();
-                }
-            }, 300);
-        }, 5000);
+            toast.classList.remove('active');
+        }, 3000);
     }
     
-    checkPWAInstall() {
-        // Check if app is already installed
-        if (window.matchMedia('(display-mode: standalone)').matches || 
-            window.navigator.standalone === true) {
-            return;
-        }
-        
-        // Show install prompt after 10 seconds
-        setTimeout(() => {
-            const installPrompt = document.getElementById('installPrompt');
-            if (installPrompt && !localStorage.getItem('intuiva_install_dismissed')) {
-                installPrompt.classList.add('active');
-            }
-        }, 10000);
-        
-        // Handle dismiss
-        document.getElementById('dismissInstall')?.addEventListener('click', () => {
-            localStorage.setItem('intuiva_install_dismissed', 'true');
-        });
-    }
-}
-
-// Kanban Board Class
-class KanbanBoard {
-    constructor(tasks = []) {
-        this.tasks = tasks;
-        this.filteredTasks = [...tasks];
-        this.draggedTask = null;
-        
-        this.init();
+    generateId() {
+        return Date.now().toString(36) + Math.random().toString(36).substr(2);
     }
     
-    init() {
-        this.renderColumns();
-        this.renderTasks();
-        this.setupDragAndDrop();
-        this.updateStats();
-    }
-    
-    renderColumns() {
-        const board = document.getElementById('kanbanBoard');
-        board.innerHTML = '';
-        
-        KANBAN_COLUMNS.forEach(column => {
-            const columnElement = document.createElement('div');
-            columnElement.className = 'kanban-column';
-            columnElement.dataset.column = column.id;
-            
-            const tasksInColumn = this.tasks.filter(task => task.column === column.id);
-            
-            columnElement.innerHTML = `
-                <div class="column-header">
-                    <div class="column-title">
-                        <h3>${column.title}</h3>
-                        <span class="column-count">${tasksInColumn.length}</span>
-                    </div>
-                    <div class="column-actions">
-                        <button class="add-column-task" title="Add task">
-                            <i class="fas fa-plus"></i>
-                        </button>
-                        <button class="collapse-column" title="Collapse">
-                            <i class="fas fa-chevron-up"></i>
-                        </button>
-                    </div>
-                </div>
-                <div class="column-tasks" data-column="${column.id}">
-                    ${tasksInColumn.length === 0 ? 
-                        `<div class="empty-state">
-                            <i class="fas fa-tasks"></i>
-                            <p>No tasks here</p>
-                        </div>` : ''
-                    }
-                </div>
-            `;
-            
-            board.appendChild(columnElement);
-            
-            // Add event listener for add button
-            columnElement.querySelector('.add-column-task').addEventListener('click', () => {
-                this.showTaskModal(column.id);
-            });
-        });
-    }
-    
-    renderTasks() {
-        // Clear all task containers first
-        document.querySelectorAll('.column-tasks').forEach(container => {
-            if (!container.querySelector('.empty-state')) {
-                container.innerHTML = '';
-            }
-        });
-        
-        // Render filtered tasks
-        this.filteredTasks.forEach(task => {
-            this.renderTask(task);
-        });
-        
-        // Update column counts
-        this.updateColumnCounts();
-    }
-    
-    renderTask(task) {
-        const columnContainer = document.querySelector(`.column-tasks[data-column="${task.column}"]`);
-        if (!columnContainer) return;
-        
-        // Remove empty state if present
-        const emptyState = columnContainer.querySelector('.empty-state');
-        if (emptyState) {
-            emptyState.remove();
-        }
-        
-        const taskElement = document.createElement('div');
-        taskElement.className = `task-card ${task.priority}`;
-        taskElement.dataset.taskId = task.id;
-        taskElement.draggable = true;
-        
-        const initials = DataUtils.getInitials(task.assignee);
-        const dueDate = DataUtils.formatDate(task.dueDate);
-        const isOverdue = DataUtils.isOverdue(task.dueDate);
-        const priorityLabel = DataUtils.getPriorityLabel(task.priority);
-        
-        taskElement.innerHTML = `
-            <div class="task-header">
-                <h4 class="task-title">${task.title}</h4>
-                <span class="task-priority ${task.priority}">${priorityLabel}</span>
-            </div>
-            <p class="task-description">${task.description}</p>
-            <div class="task-footer">
-                <div class="task-assignee">
-                    <div class="assignee-avatar" style="background-color: ${this.getAssigneeColor(task.assigneeId)}">
-                        ${initials}
-                    </div>
-                    <span>${task.assignee}</span>
-                </div>
-                <div class="task-due ${isOverdue ? 'overdue' : ''}">
-                    <i class="fas fa-calendar-alt"></i>
-                    <span>${dueDate}</span>
-                </div>
-            </div>
-            <div class="task-actions">
-                <button class="edit-task" title="Edit">
-                    <i class="fas fa-edit"></i>
-                </button>
-                <button class="delete-task" title="Delete">
-                    <i class="fas fa-trash"></i>
-                </button>
-            </div>
-        `;
-        
-        columnContainer.appendChild(taskElement);
-        
-        // Add event listeners
-        taskElement.querySelector('.edit-task').addEventListener('click', (e) => {
-            e.stopPropagation();
-            this.editTask(task.id);
-        });
-        
-        taskElement.querySelector('.delete-task').addEventListener('click', (e) => {
-            e.stopPropagation();
-            this.deleteTask(task.id);
-        });
-        
-        taskElement.addEventListener('click', (e) => {
-            if (!e.target.closest('.task-actions')) {
-                this.viewTask(task.id);
-            }
-        });
-    }
-    
-    setupDragAndDrop() {
-        // Drag start
-        document.addEventListener('dragstart', (e) => {
-            if (e.target.classList.contains('task-card')) {
-                this.draggedTask = e.target;
-                e.target.classList.add('dragging');
-                
-                // Set drag image
-                setTimeout(() => {
-                    e.target.style.opacity = '0.4';
-                }, 0);
-            }
-        });
-        
-        // Drag end
-        document.addEventListener('dragend', (e) => {
-            if (e.target.classList.contains('task-card')) {
-                e.target.classList.remove('dragging');
-                e.target.style.opacity = '1';
-                this.draggedTask = null;
-                
-                // Remove drag-over classes
-                document.querySelectorAll('.column-tasks').forEach(col => {
-                    col.classList.remove('drag-over');
-                });
-            }
-        });
-        
-        // Drag over
-        document.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            
-            const columnTasks = e.target.closest('.column-tasks');
-            if (columnTasks) {
-                columnTasks.classList.add('drag-over');
-            }
-        });
-        
-        // Drag leave
-        document.addEventListener('dragleave', (e) => {
-            const columnTasks = e.target.closest('.column-tasks');
-            if (columnTasks) {
-                columnTasks.classList.remove('drag-over');
-            }
-        });
-        
-        // Drop
-        document.addEventListener('drop', (e) => {
-            e.preventDefault();
-            
-            const columnTasks = e.target.closest('.column-tasks');
-            if (columnTasks && this.draggedTask) {
-                const newColumn = columnTasks.dataset.column;
-                const taskId = this.draggedTask.dataset.taskId;
-                
-                this.moveTask(taskId, newColumn);
-                columnTasks.appendChild(this.draggedTask);
-                columnTasks.classList.remove('drag-over');
-                
-                // Update task in array
-                const task = this.tasks.find(t => t.id === taskId);
-                if (task) {
-                    task.column = newColumn;
-                    this.saveTasks();
-                    this.updateStats();
-                    this.updateColumnCounts();
-                }
-            }
-        });
-    }
-    
-    moveTask(taskId, newColumn) {
-        const task = this.tasks.find(t => t.id === taskId);
-        if (task) {
-            task.column = newColumn;
-            this.saveTasks();
-            this.updateColumnCounts();
-            
-            window.app?.showToast(`Task moved to ${newColumn}`, 'success');
-        }
-    }
-    
-    deleteTask(taskId) {
-        if (confirm('Are you sure you want to delete this task?')) {
-            this.tasks = this.tasks.filter(task => task.id !== taskId);
-            this.filteredTasks = this.filteredTasks.filter(task => task.id !== taskId);
-            
-            this.saveTasks();
-            this.renderColumns();
-            this.renderTasks();
-            this.updateStats();
-            
-            window.app?.showToast('Task deleted', 'success');
-        }
-    }
-    
-    editTask(taskId) {
-        const task = this.tasks.find(t => t.id === taskId);
-        if (!task) return;
-        
-        this.showTaskModal(task.column, task);
-    }
-    
-    viewTask(taskId) {
-        const task = this.tasks.find(t => t.id === taskId);
-        if (!task) return;
-        
-        // Show detailed view modal
-        const modal = document.createElement('div');
-        modal.className = 'modal active';
-        modal.innerHTML = `
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3>${task.title}</h3>
-                    <button class="close-modal">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <div class="task-detail">
-                        <div class="detail-section">
-                            <h4>Description</h4>
-                            <p>${task.description}</p>
-                        </div>
-                        <div class="detail-grid">
-                            <div class="detail-item">
-                                <span class="detail-label">Priority</span>
-                                <span class="task-priority ${task.priority}">${DataUtils.getPriorityLabel(task.priority)}</span>
-                            </div>
-                            <div class="detail-item">
-                                <span class="detail-label">Assignee</span>
-                                <div class="task-assignee">
-                                    <div class="assignee-avatar" style="background-color: ${this.getAssigneeColor(task.assigneeId)}">
-                                        ${DataUtils.getInitials(task.assignee)}
-                                    </div>
-                                    <span>${task.assignee}</span>
-                                </div>
-                            </div>
-                            <div class="detail-item">
-                                <span class="detail-label">Due Date</span>
-                                <span class="${DataUtils.isOverdue(task.dueDate) ? 'overdue' : ''}">
-                                    ${new Date(task.dueDate).toLocaleDateString()}
-                                </span>
-                            </div>
-                            <div class="detail-item">
-                                <span class="detail-label">Status</span>
-                                <span class="status-badge">${task.column}</span>
-                            </div>
-                        </div>
-                        ${task.tags && task.tags.length > 0 ? `
-                            <div class="detail-section">
-                                <h4>Tags</h4>
-                                <div class="tags-container">
-                                    ${task.tags.map(tag => `<span class="tag">${tag}</span>`).join('')}
-                                </div>
-                            </div>
-                        ` : ''}
-                        ${task.estimate ? `
-                            <div class="detail-section">
-                                <h4>Estimate</h4>
-                                <p>${task.estimate}</p>
-                            </div>
-                        ` : ''}
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn-secondary close-detail">Close</button>
-                    <button class="btn-primary edit-detail">Edit Task</button>
-                </div>
-            </div>
-        `;
-        
-        document.body.appendChild(modal);
-        
-        // Add event listeners
-        modal.querySelector('.close-modal').addEventListener('click', () => modal.remove());
-        modal.querySelector('.close-detail').addEventListener('click', () => modal.remove());
-        modal.querySelector('.edit-detail').addEventListener('click', () => {
-            modal.remove();
-            this.editTask(taskId);
-        });
-        
-        // Close on background click
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) {
-                modal.remove();
-            }
-        });
-    }
-    
-    showTaskModal(columnId = 'todo', task = null) {
-        const modal = document.getElementById('taskModal');
-        const isEdit = !!task;
-        
-        // Set title
-        modal.querySelector('h3').textContent = isEdit ? 'Edit Task' : 'Add New Task';
-        
-        // Clear or populate form
-        if (isEdit) {
-            document.getElementById('taskTitle').value = task.title;
-            document.getElementById('taskDescription').value = task.description;
-            document.getElementById('taskPriority').value = task.priority;
-            document.getElementById('taskAssignee').value = task.assignee;
-            document.getElementById('taskDueDate').value = task.dueDate;
-        } else {
-            document.getElementById('taskTitle').value = '';
-            document.getElementById('taskDescription').value = '';
-            document.getElementById('taskPriority').value = 'medium';
-            document.getElementById('taskAssignee').value = '';
-            document.getElementById('taskDueDate').value = '';
-        }
-        
-        // Store task ID for editing
-        modal.dataset.taskId = task?.id || '';
-        modal.dataset.column = columnId;
-        
-        modal.classList.add('active');
-        document.getElementById('taskTitle').focus();
-    }
-    
-    saveNewTask() {
-        const modal = document.getElementById('taskModal');
-        const taskId = modal.dataset.taskId;
-        const columnId = modal.dataset.column;
-        const isEdit = !!taskId;
-        
-        const title = document.getElementById('taskTitle').value.trim();
-        const description = document.getElementById('taskDescription').value.trim();
-        const priority = document.getElementById('taskPriority').value;
-        const assignee = document.getElementById('taskAssignee').value.trim();
-        const dueDate = document.getElementById('taskDueDate').value;
-        
-        if (!title) {
-            alert('Please enter a task title');
-            return;
-        }
-        
-        if (isEdit) {
-            // Update existing task
-            const task = this.tasks.find(t => t.id === taskId);
-            if (task) {
-                task.title = title;
-                task.description = description;
-                task.priority = priority;
-                task.assignee = assignee || 'Unassigned';
-                task.dueDate = dueDate;
-                
-                this.saveTasks();
-                this.renderColumns();
-                this.renderTasks();
-                this.updateStats();
-                
-                window.app?.showToast('Task updated', 'success');
-            }
-        } else {
-            // Create new task
-            const newTask = {
-                id: `task-${Date.now()}`,
-                title,
-                description,
-                priority,
-                assignee: assignee || 'Unassigned',
-                assigneeId: this.getRandomAssigneeId(),
-                column: columnId,
-                createdAt: new Date().toISOString(),
-                dueDate: dueDate || this.getDefaultDueDate(),
-                tags: [],
-                estimate: '2h'
-            };
-            
-            this.tasks.push(newTask);
-            this.filteredTasks.push(newTask);
-            
-            this.saveTasks();
-            this.renderColumns();
-            this.renderTasks();
-            this.updateStats();
-            
-            window.app?.showToast('Task created', 'success');
-        }
-        
-        modal.classList.remove('active');
-    }
-    
-    filterTasks(searchTerm) {
-        const term = searchTerm.toLowerCase().trim();
-        
-        if (term === '') {
-            this.filteredTasks = [...this.tasks];
-        } else {
-            this.filteredTasks = this.tasks.filter(task => 
-                task.title.toLowerCase().includes(term) ||
-                task.description.toLowerCase().includes(term) ||
-                task.assignee.toLowerCase().includes(term) ||
-                task.tags?.some(tag => tag.toLowerCase().includes(term))
-            );
-        }
-        
-        this.renderTasks();
-    }
-    
-    updateColumnCounts() {
-        KANBAN_COLUMNS.forEach(column => {
-            const count = this.tasks.filter(task => task.column === column.id).length;
-            const countElement = document.querySelector(`[data-column="${column.id}"] .column-count`);
-            if (countElement) {
-                countElement.textContent = count;
-            }
-        });
-    }
-    
-    updateStats() {
-        if (window.app) {
-            window.app.updateStats();
-        }
-    }
-    
-    getStats() {
-        return {
-            total: this.tasks.length,
-            todo: this.tasks.filter(t => t.column === 'todo').length,
-            inProgress: this.tasks.filter(t => t.column === 'inprogress').length,
-            review: this.tasks.filter(t => t.column === 'review').length,
-            done: this.tasks.filter(t => t.column === 'done').length
+    saveToLocalStorage() {
+        const data = {
+            answers: this.answers,
+            tasks: this.tasks,
+            lastUpdated: new Date().toISOString()
         };
+        
+        try {
+            localStorage.setItem('intuiva-data', JSON.stringify(data));
+        } catch (e) {
+            console.warn('Failed to save to localStorage:', e);
+        }
     }
     
-    saveTasks() {
-        DataUtils.saveToStorage('tasks', this.tasks);
-    }
-    
-    getAssigneeColor(assigneeId) {
-        const member = TEAM_MEMBERS.find(m => m.id === assigneeId);
-        return member ? member.color : '#4361ee';
-    }
-    
-    getRandomAssigneeId() {
-        const randomIndex = Math.floor(Math.random() * TEAM_MEMBERS.length);
-        return TEAM_MEMBERS[randomIndex].id;
-    }
-    
-    getDefaultDueDate() {
-        const date = new Date();
-        date.setDate(date.getDate() + 7);
-        return date.toISOString().split('T')[0];
+    loadFromLocalStorage() {
+        try {
+            const data = JSON.parse(localStorage.getItem('intuiva-data'));
+            
+            if (data) {
+                this.answers = data.answers || {};
+                this.tasks = data.tasks || [];
+                
+                // If we have tasks, show kanban board directly
+                if (this.tasks.length > 0) {
+                    this.showKanbanBoard();
+                }
+            }
+        } catch (e) {
+            console.warn('Failed to load from localStorage:', e);
+        }
     }
 }
 
 // Initialize the app when DOM is loaded
-
-
-
-// Handle online/offline status
-window.addEventListener('online', () => {
-    window.app?.showToast('Back online', 'success');
-});
-
-window.addEventListener('offline', () => {
-    window.app?.showToast('You are offline. Changes will sync when back online.', 'warning');
-});
-
-// Prevent leaving page with unsaved changes
-window.addEventListener('beforeunload', (e) => {
-    const answers = DataUtils.loadFromStorage('answers');
-    if (answers && answers.length > 0 && answers.length < QUESTIONS.length) {
-        e.preventDefault();
-        e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
-        return e.returnValue;
-    }
+document.addEventListener('DOMContentLoaded', () => {
+    window.intuivaApp = new IntuivaApp();
 });
