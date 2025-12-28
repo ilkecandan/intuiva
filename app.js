@@ -329,15 +329,15 @@ class IntuivaApp {
             DataUtils.saveToStorage('tasks', this.tasks);
             DataUtils.saveToStorage('answers', this.answers);
             
-            // Initialize kanban board
-            window.kanbanBoard = new KanbanBoard(this.tasks);
-            
-            // Show kanban board
-            setTimeout(() => {
-                this.hideLoadingScreen();
-                this.showKanbanBoard();
-                this.showToast('Kanban board generated successfully!', 'success');
-            }, 500);
+// Initialize kanban board
+window.kanbanBoard = new KanbanBoard(this.tasks);
+
+// Show kanban board
+setTimeout(() => {
+    this.hideLoadingScreen();
+    this.showKanbanBoard();
+    this.showToast('Kanban board generated successfully!', 'success');
+}, 500);
             
         }, 1500);
     }
@@ -394,14 +394,16 @@ class IntuivaApp {
         this.showToast('New project started', 'success');
     }
     
-    updateStats() {
-        if (!window.kanbanBoard) return;
-        
-        const stats = window.kanbanBoard.getStats();
+updateStats() {
+    if (!window.kanbanBoard) return;
+    
+    const stats = window.kanbanBoard.getStats();
+    if (stats) {
         this.totalTasks.textContent = stats.total;
         this.inProgressTasks.textContent = stats.inProgress;
         this.doneTasks.textContent = stats.done;
     }
+}
     
     exportData() {
         const exportData = {
