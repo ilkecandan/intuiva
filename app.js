@@ -797,27 +797,28 @@ generateTasksBasedOnAnswers() {
         }
     }
     
-loadFromLocalStorage() {
-    try {
-        const data = JSON.parse(localStorage.getItem('intuiva-data'));
-        
-        if (data) {
-            this.answers = data.answers || {};
-            this.tasks = data.tasks || [];
+    loadFromLocalStorage() {
+        try {
+            const data = JSON.parse(localStorage.getItem('intuiva-data'));
             
-            // Only show kanban board if there are actual tasks
-            if (this.tasks && this.tasks.length > 0) {
-                // Navigate to kanban board but don't reset screen
-                if (!this.kanbanBoard) {
-                    this.kanbanBoard = new KanbanBoard(this.tasks);
+            if (data) {
+                this.answers = data.answers || {};
+                this.tasks = data.tasks || [];
+                
+                // Only show kanban board if there are actual tasks
+                if (this.tasks && this.tasks.length > 0) {
+                    // Navigate to kanban board but don't reset screen
+                    if (!this.kanbanBoard) {
+                        this.kanbanBoard = new KanbanBoard(this.tasks);
+                    }
+                    this.updateStats();
                 }
-                this.updateStats();
             }
+        } catch (e) {
+            console.warn('Failed to load from localStorage:', e);
         }
-    } catch (e) {
-        console.warn('Failed to load from localStorage:', e);
     }
-}
+} // <-- This closes the IntuivaApp class
 
 // Initialize the app when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
