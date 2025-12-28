@@ -770,40 +770,23 @@ if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         // Get the current path - important for GitHub Pages subdirectory
         const basePath = window.location.pathname.includes('/intuiva') 
-            ? '/intuiva' 
-            : '';
+            ? '/intuiva/'  // ADD TRAILING SLASH HERE
+            : './';
         
-        const swPath = `${basePath}/service-worker.js`;
+        const swPath = `${basePath}service-worker.js`.replace('//', '/');
         
         console.log('Registering Service Worker at:', swPath);
+        console.log('With scope:', basePath);
         
         navigator.serviceWorker.register(swPath, {
-            scope: basePath || './'
+            scope: basePath
         })
         .then(registration => {
             console.log('✅ ServiceWorker registration successful with scope:', registration.scope);
-            
-            // Check for updates
-            registration.addEventListener('updatefound', () => {
-                const newWorker = registration.installing;
-                console.log('🔄 ServiceWorker update found!');
-                
-                newWorker.addEventListener('statechange', () => {
-                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                        // New content is available
-                        console.log('📦 New content is available, please refresh.');
-                        if (confirm('New version of Intuiva available! Reload to update?')) {
-                            window.location.reload();
-                        }
-                    }
-                });
-            });
+            // ... rest of your code
         })
         .catch(err => {
             console.error('❌ ServiceWorker registration failed: ', err);
-            
-            // Fallback: Don't break the app if service worker fails
-            console.log('Proceeding without Service Worker support');
         });
     });
 }
