@@ -750,13 +750,10 @@ class IntuivaApp {
         }
     }
 
-    getBackendUrl() {
-        // In production, this would be your Railway backend URL
-        // For development, use localhost
-        return window.location.hostname === 'localhost' 
-            ? 'http://localhost:3000'
-            : 'https://your-railway-app.up.railway.app';
-    }
+getBackendUrl() {
+    // Use your Railway backend URL directly
+    return "https://intuivabackend-production.up.railway.app";
+}
 
     escapeHtml(text) {
         const div = document.createElement('div');
