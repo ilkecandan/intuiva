@@ -389,31 +389,54 @@ initModals() {
         }
     }
     
-    generateTasksFromAnswers() {
-        if (this.isGeneratingTasks) return;
-        
-        this.isGeneratingTasks = true;
-        
-        // Show loading state
-        const nextBtn = document.getElementById('nextBtn');
-        const originalHtml = nextBtn.innerHTML;
-        nextBtn.innerHTML = '<div class="loading"></div> Generating Tasks...';
-        nextBtn.disabled = true;
-        
-        // Simulate AI processing (in a real app, this would call an API)
-        setTimeout(() => {
-            this.tasks = this.generateTasksBasedOnAnswers();
-            this.navigateTo('kanbanBoard');
-            
-            // Reset button
-            nextBtn.innerHTML = originalHtml;
-            nextBtn.disabled = false;
-            this.isGeneratingTasks = false;
-            
-            this.showToast('Tasks generated successfully!', 'success');
-        }, 1500);
+  // In your IntuivaApp class, replace the generateTasksFromAnswers method
+async generateTasksFromAnswers() {
+    if (this.isGeneratingTasks) return;
+    this.isGeneratingTasks = true;
+
+    const nextBtn = document.getElementById('nextBtn');
+    const originalHtml = nextBtn.innerHTML;
+    nextBtn.innerHTML = '<div class="loading"></div> Contacting AI...';
+    nextBtn.disabled = true;
+
+    try {
+        // 1. Prepare data to send
+        const requestData = {
+            answers: this.answers,
+            questions: this.questions // Send questions for full context
+        };
+
+        // 2. Call YOUR backend endpoint
+        // USE YOUR RAILWAY URL HERE:
+        const response = await fetch('https://intuivabackend-production.up.railway.app/api/generate-tasks', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestData)
+        });
+
+        const result = await response.json();
+
+        if (result.success && result.tasks.length > 0) {
+            // 3. Use AI-generated tasks
+            this.tasks = result.tasks;
+            this.showToast('AI tasks generated successfully!', 'success');
+        } else {
+            // 4. Fallback to local logic if AI fails
+            throw new Error('AI returned no tasks');
+        }
+
+    } catch (error) {
+        console.warn('AI generation failed, using fallback:', error);
+        this.tasks = this.generateTasksBasedOnAnswers(); // Your existing logic
+        this.showToast('Generated tasks from your answers.', 'info');
+    } finally {
+        // 5. Proceed as before
+        this.navigateTo('kanbanBoard');
+        nextBtn.innerHTML = originalHtml;
+        nextBtn.disabled = false;
+        this.isGeneratingTasks = false;
     }
-    
+}
 generateTasksBasedOnAnswers() {
     // If there are no answers at all, return empty array
     const hasValidAnswers = Object.values(this.answers).some(answer => 
