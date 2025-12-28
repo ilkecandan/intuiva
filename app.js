@@ -55,11 +55,14 @@ class IntuivaApp {
             this.loadQuestion(0);
         });
         
-        // Skip to board button
-        document.getElementById('skipBtn').addEventListener('click', () => {
-            this.tasks = this.generateDefaultTasks();
-            this.navigateTo('kanbanBoard');
-        });
+     // Skip to board button
+document.getElementById('skipBtn').addEventListener('click', () => {
+    this.tasks = []; // Empty array instead of default tasks
+    this.answers = {}; // Also clear answers
+    this.currentQuestionIndex = 0; // Reset question index
+    this.navigateTo('kanbanBoard');
+    this.showToast('Started with empty board', 'info');
+});
         
         // Navigation buttons
         document.getElementById('prevBtn').addEventListener('click', () => this.prevQuestion());
