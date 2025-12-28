@@ -208,39 +208,54 @@ class IntuivaApp {
     }
 
     async submitAnswers() {
-        this.saveCurrentAnswer();
+    this.saveCurrentAnswer();
+    
+    // Check if we have enough answers
+    const answeredQuestions = Object.keys(this.answers).length;
+    if (answeredQuestions < 5) {
+        this.showToast('Please answer at least 5 questions for better AI analysis', 'warning');
+        return;
+    }
+    
+    // Show AI processing modal
+    this.showAIProcessing();
+    
+    try {
+        const backendUrl = this.getBackendUrl();
+        console.log('Sending request to:', backendUrl);
         
-        // Check if we have enough answers
-        const answeredQuestions = Object.keys(this.answers).length;
-        if (answeredQuestions < 5) {
-            this.showToast('Please answer at least 5 questions for better AI analysis', 'warning');
-            return;
+        // Prepare request data
+        const requestData = {
+            answers: this.answers,
+            projectName: this.projectName || "My Project"
+        };
+        
+        console.log('Request data:', requestData);
+        
+        // Send answers to backend for AI processing
+        const response = await fetch(`${backendUrl}/api/ai/analyze`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(requestData)
+        });
+        
+        console.log('Response status:', response.status);
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Server error:', errorText);
+            throw new Error(`Server responded with ${response.status}: ${errorText}`);
         }
         
-        // Show AI processing modal
-        this.showAIProcessing();
+        const data = await response.json();
+        console.log('AI Response data:', data);
         
-        try {
-            // Send answers to backend for AI processing
-            const response = await fetch(`${this.getBackendUrl()}/api/ai/analyze`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    answers: this.answers,
-                    projectName: this.projectName
-                })
-            });
-            
-            if (!response.ok) {
-                throw new Error('Failed to analyze answers');
-            }
-            
-            const data = await response.json();
-            
+        if (data.success && data.tasks) {
             // Generate tasks from AI analysis
-            this.generateTasksFromAI(data.tasks || []);
+            this.generateTasksFromAI(data.tasks);
             
             // Save to localStorage
             this.saveToStorage();
@@ -253,19 +268,31 @@ class IntuivaApp {
                 this.hideAIProcessing();
                 this.showApp();
                 this.showToast('Kanban board generated successfully!', 'success');
+                
+                // Log the generated tasks
+                console.log('Generated tasks:', this.tasks);
             }, 1000);
-            
-        } catch (error) {
-            console.error('Error submitting answers:', error);
-            this.hideAIProcessing();
-            
-            // Fallback: Generate sample tasks
-            this.generateSampleTasks();
-            localStorage.setItem('intuiva_onboarding_complete', 'true');
-            this.showApp();
-            this.showToast('Using sample tasks. AI analysis unavailable.', 'warning');
+        } else {
+            throw new Error(data.message || 'Invalid response from server');
         }
+        
+    } catch (error) {
+        console.error('Error submitting answers:', error);
+        this.hideAIProcessing();
+        
+        // Show detailed error
+        this.showToast(`Error: ${error.message}. Using fallback tasks.`, 'error');
+        
+        // Fallback: Generate sample tasks
+        this.generateSampleTasks();
+        localStorage.setItem('intuiva_onboarding_complete', 'true');
+        
+        // Small delay before showing app
+        setTimeout(() => {
+            this.showApp();
+        }, 500);
     }
+}
 
     generateTasksFromAI(aiTasks) {
         this.tasks = aiTasks.map((task, index) => ({
@@ -751,8 +778,12 @@ class IntuivaApp {
     }
 
 getBackendUrl() {
-    // Use your Railway backend URL directly
-    return "https://intuivabackend-production.up.railway.app";
+    // Development vs Production
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        return "http://localhost:3000";
+    } else {
+        return "https://intuivabackend-production.up.railway.app";
+    }
 }
 
     escapeHtml(text) {
