@@ -19,7 +19,12 @@ class KanbanBoard {
     renderTasks() {
         // Clear all columns
         Object.values(this.columns).forEach(column => {
+            // Keep only the empty state if present, remove everything else
+            const emptyState = column.querySelector('.empty-state');
             column.innerHTML = '';
+            if (emptyState) {
+                column.appendChild(emptyState);
+            }
         });
         
         // Render tasks in appropriate columns
@@ -113,7 +118,15 @@ class KanbanBoard {
         const taskIndex = this.tasks.findIndex(t => t.id === taskId);
         if (taskIndex !== -1) {
             this.tasks[taskIndex] = { ...this.tasks[taskIndex], ...updates };
-            this.renderTasks();
+            
+            // Remove the task from DOM
+            const taskElement = document.querySelector(`[data-task-id="${taskId}"]`);
+            if (taskElement) {
+                taskElement.remove();
+            }
+            
+            // Re-render the task in correct column
+            this.renderTask(this.tasks[taskIndex]);
             this.updateStats();
             return true;
         }
@@ -122,7 +135,16 @@ class KanbanBoard {
     
     deleteTask(taskId) {
         if (confirm('Are you sure you want to delete this task?')) {
+            // Remove from data
             this.tasks = this.tasks.filter(task => task.id !== taskId);
+            
+            // Remove from DOM
+            const taskElement = document.querySelector(`[data-task-id="${taskId}"]`);
+            if (taskElement) {
+                taskElement.remove();
+            }
+            
+            // Re-render to check for empty states
             this.renderTasks();
             this.updateStats();
             
@@ -150,11 +172,13 @@ class KanbanBoard {
         // Show modal
         document.getElementById('taskModal').classList.add('active');
         
-        // Update form submission to edit instead of add
+        // Remove any existing submit listeners
         const form = document.getElementById('taskForm');
-        const originalSubmit = form.onsubmit;
+        const newForm = form.cloneNode(true);
+        form.parentNode.replaceChild(newForm, form);
         
-        form.onsubmit = (e) => {
+        // Add new submit listener
+        newForm.addEventListener('submit', (e) => {
             e.preventDefault();
             
             const updatedTask = {
@@ -170,16 +194,13 @@ class KanbanBoard {
             
             if (this.updateTask(taskId, updatedTask)) {
                 document.getElementById('taskModal').classList.remove('active');
-                form.reset();
+                newForm.reset();
                 
                 if (window.intuivaApp) {
                     window.intuivaApp.showToast('Task updated successfully!', 'success');
                 }
             }
-            
-            // Restore original submit handler
-            form.onsubmit = originalSubmit;
-        };
+        });
     }
     
     viewTask(taskId) {
@@ -201,15 +222,17 @@ class KanbanBoard {
     
     initDragAndDrop() {
         let draggedTask = null;
+        let draggedTaskId = null;
         
         // Add drag event listeners to task cards
         document.addEventListener('dragstart', (e) => {
             if (e.target.classList.contains('task-card')) {
                 draggedTask = e.target;
+                draggedTaskId = e.target.dataset.taskId;
                 e.target.classList.add('dragging');
                 
                 // Set drag image
-                e.dataTransfer.setData('text/plain', e.target.dataset.taskId);
+                e.dataTransfer.setData('text/plain', draggedTaskId);
                 e.dataTransfer.effectAllowed = 'move';
             }
         });
@@ -218,6 +241,7 @@ class KanbanBoard {
             if (e.target.classList.contains('task-card')) {
                 e.target.classList.remove('dragging');
                 draggedTask = null;
+                draggedTaskId = null;
                 
                 // Remove drag-over styles from all columns
                 document.querySelectorAll('.column-content').forEach(col => {
@@ -242,21 +266,17 @@ class KanbanBoard {
                 e.preventDefault();
                 column.classList.remove('drag-over');
                 
-                if (draggedTask) {
-                    const taskId = draggedTask.dataset.taskId;
+                if (draggedTaskId) {
+                    const taskId = draggedTaskId;
                     const newStatus = column.parentElement.dataset.status;
                     
-                    // Update task status
-                    this.updateTask(taskId, { status: newStatus });
-                    
-                    // Move task element to new column
-                    column.appendChild(draggedTask);
-                    
-                    // Remove empty state if present
-                    const emptyState = column.querySelector('.empty-state');
-                    if (emptyState) {
-                        emptyState.remove();
+                    // Remove the dragged element from DOM
+                    if (draggedTask) {
+                        draggedTask.remove();
                     }
+                    
+                    // Update task status in data model
+                    this.updateTask(taskId, { status: newStatus });
                     
                     // Show feedback
                     if (window.intuivaApp) {
