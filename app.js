@@ -10,244 +10,245 @@ class IntuivaApp {
         this.init();
     }
     
-    init() {
-        // Initialize screens
-        this.screens = {
-            onboarding: document.getElementById('onboarding'),
-            questionnaire: document.getElementById('questionnaire'),
-            kanbanBoard: document.getElementById('kanbanBoard')
-        };
-        
-        // Initialize buttons
-        this.initButtons();
-        
-        // Initialize navigation
-        this.initNavigation();
-        
-        // Initialize questionnaire
-        this.initQuestionnaire();
-        
-        // Initialize modals
-        this.initModals();
-        
-        // Initialize drag and drop
-        this.initDragAndDrop();
-        
-        // Show onboarding screen
-        this.showScreen('onboarding');
-        
-        // Check for existing data
-        this.loadFromLocalStorage();
-        
-        // Initialize theme
-        this.initTheme();
-        
-        // Update character counter
-        this.initCharCounter();
-        
-        console.log('Intuiva App initialized successfully');
-    }
-    
-    initButtons() {
-        // Start button
-        document.getElementById('startBtn').addEventListener('click', () => {
-            this.navigateTo('questionnaire');
-            this.loadQuestion(0);
-        });
-        
-// Skip to board button
-document.getElementById('skipBtn').addEventListener('click', () => {
-    // Clear all data
-    this.tasks = []; // Empty array
-    this.answers = {}; // Clear answers
-    this.currentQuestionIndex = 0; // Reset question index
-    
-    // Clear localStorage to prevent loading old data
-    try {
-        localStorage.removeItem('intuiva-data');
-    } catch (e) {
-        console.warn('Failed to clear localStorage:', e);
-    }
-    
-    // Clear any existing kanban board
-    if (this.kanbanBoard) {
-        this.kanbanBoard.clearTasks();
-    }
-    
-    // Navigate to kanban board
-    this.navigateTo('kanbanBoard');
 
-// Clear All button (if you added it)
-if (document.getElementById('clearAllBtn')) {
-    document.getElementById('clearAllBtn').addEventListener('click', () => {
-        if (confirm('Are you sure you want to clear all tasks? This cannot be undone.')) {
-            this.tasks = [];
-            if (this.kanbanBoard) {
-                this.kanbanBoard.clearTasks();
-            }
+init() {
+    // Initialize screens
+    this.screens = {
+        onboarding: document.getElementById('onboarding'),
+        questionnaire: document.getElementById('questionnaire'),
+        kanbanBoard: document.getElementById('kanbanBoard')
+    };
+    
+    // Initialize buttons
+    this.initButtons();
+    
+    // Initialize navigation
+    this.initNavigation();
+    
+    // Initialize questionnaire
+    this.initQuestionnaire();
+    
+    // Initialize modals
+    this.initModals();
+    
+    // Initialize drag and drop
+    this.initDragAndDrop();
+    
+    // Show onboarding screen
+    this.showScreen('onboarding');
+    
+    // Check for existing data
+    this.loadFromLocalStorage();
+    
+    // Initialize theme
+    this.initTheme();
+    
+    // Update character counter
+    this.initCharCounter();
+    
+    console.log('Intuiva App initialized successfully');
+}
+
+initButtons() {
+    // Start button
+    document.getElementById('startBtn').addEventListener('click', () => {
+        this.navigateTo('questionnaire');
+        this.loadQuestion(0);
+    });
+    
+    // Skip to board button
+    document.getElementById('skipBtn').addEventListener('click', () => {
+        // Clear all data
+        this.tasks = []; // Empty array
+        this.answers = {}; // Clear answers
+        this.currentQuestionIndex = 0; // Reset question index
+        
+        // Clear localStorage to prevent loading old data
+        try {
+            localStorage.removeItem('intuiva-data');
+        } catch (e) {
+            console.warn('Failed to clear localStorage:', e);
+        }
+        
+        // Clear any existing kanban board
+        if (this.kanbanBoard) {
+            this.kanbanBoard.clearTasks();
+        }
+        
+        // Navigate to kanban board
+        this.navigateTo('kanbanBoard');
+
+        // Force an empty board
+        if (this.kanbanBoard) {
+            this.kanbanBoard.tasks = [];
+            this.kanbanBoard.renderTasks();
             this.updateStats();
-            this.saveToLocalStorage();
-            this.showToast('All tasks cleared', 'info');
+        }
+        
+        this.showToast('Started with empty board', 'info');
+    });
+    
+    // Clear All button (if you added it)
+    if (document.getElementById('clearAllBtn')) {
+        document.getElementById('clearAllBtn').addEventListener('click', () => {
+            if (confirm('Are you sure you want to clear all tasks? This cannot be undone.')) {
+                this.tasks = [];
+                if (this.kanbanBoard) {
+                    this.kanbanBoard.clearTasks();
+                }
+                this.updateStats();
+                this.saveToLocalStorage();
+                this.showToast('All tasks cleared', 'info');
+            }
+        });
+    }
+    
+    // Navigation buttons
+    document.getElementById('prevBtn').addEventListener('click', () => this.prevQuestion());
+    document.getElementById('nextBtn').addEventListener('click', () => this.nextQuestion());
+    
+    // Question action buttons
+    document.getElementById('skipQuestionBtn').addEventListener('click', () => this.skipQuestion());
+    document.getElementById('notAnswerBtn').addEventListener('click', () => this.markAsNotApplicable());
+    document.getElementById('clearBtn').addEventListener('click', () => this.clearAnswer());
+    
+    // Board action buttons
+    document.getElementById('addTaskBtn').addEventListener('click', () => this.openTaskModal());
+    document.getElementById('regenerateBtn').addEventListener('click', () => this.regenerateTasks());
+    document.getElementById('exportBtn').addEventListener('click', () => this.exportBoard());
+    
+    // Add task buttons in columns
+    document.querySelectorAll('.btn-add-task').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const column = e.currentTarget.dataset.column;
+            this.openTaskModal(column);
+        });
+    });
+    
+    // Theme toggle
+    document.getElementById('themeToggle').addEventListener('click', () => this.toggleTheme());
+    
+    // Help button
+    document.getElementById('helpBtn').addEventListener('click', () => {
+        document.getElementById('helpModal').classList.add('active');
+    });
+}
+
+initNavigation() {
+    // Navigation buttons
+    document.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const screen = e.currentTarget.dataset.screen;
+            this.navigateTo(screen);
+        });
+    });
+    
+    // Back to questions button
+    document.getElementById('backToQuestionsBtn').addEventListener('click', () => {
+        this.navigateTo('questionnaire');
+    });
+    
+    // Update active nav button based on current screen
+    this.updateActiveNav();
+}
+
+navigateTo(screenName) {
+    // Save current answer if we're leaving questionnaire
+    if (this.currentScreen === 'questionnaire') {
+        this.saveAnswer(document.getElementById('answerInput').value);
+    }
+    
+    // Show the requested screen
+    this.showScreen(screenName);
+    
+    // Update current screen
+    this.currentScreen = screenName;
+    
+    // Update active nav button
+    this.updateActiveNav();
+    
+    // If navigating to questionnaire, load current question
+    if (screenName === 'questionnaire') {
+        this.loadQuestion(this.currentQuestionIndex);
+    }
+    
+    // If navigating to kanban, ensure board is initialized
+    if (screenName === 'kanbanBoard') {
+        if (!this.kanbanBoard) {
+            this.kanbanBoard = new KanbanBoard(this.tasks);
+        }
+        this.updateStats();
+    }
+}
+
+updateActiveNav() {
+    // Update nav buttons
+    document.querySelectorAll('.nav-btn').forEach(btn => {
+        if (btn.dataset.screen === this.currentScreen) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
         }
     });
 }
 
+initQuestionnaire() {
+    this.questions = QUESTIONS;
+    this.totalQuestions = this.questions.length;
     
-    // Force an empty board
-    if (this.kanbanBoard) {
-        this.kanbanBoard.tasks = [];
-        this.kanbanBoard.renderTasks();
-        this.updateStats();
-    }
+    // Initialize answer input event
+    const answerInput = document.getElementById('answerInput');
+    answerInput.addEventListener('input', (e) => {
+        this.saveAnswer(e.target.value);
+        this.updateCharCounter();
+    });
     
-    this.showToast('Started with empty board', 'info');
-});
-        
-        // Navigation buttons
-        document.getElementById('prevBtn').addEventListener('click', () => this.prevQuestion());
-        document.getElementById('nextBtn').addEventListener('click', () => this.nextQuestion());
-        
-        // Question action buttons
-        document.getElementById('skipQuestionBtn').addEventListener('click', () => this.skipQuestion());
-        document.getElementById('notAnswerBtn').addEventListener('click', () => this.markAsNotApplicable());
-        document.getElementById('clearBtn').addEventListener('click', () => this.clearAnswer());
-        
-        // Board action buttons
-        document.getElementById('addTaskBtn').addEventListener('click', () => this.openTaskModal());
-        document.getElementById('regenerateBtn').addEventListener('click', () => this.regenerateTasks());
-        document.getElementById('exportBtn').addEventListener('click', () => this.exportBoard());
-        
-        // Add task buttons in columns
-        document.querySelectorAll('.btn-add-task').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const column = e.currentTarget.dataset.column;
-                this.openTaskModal(column);
-            });
-        });
-        
-        // Theme toggle
-        document.getElementById('themeToggle').addEventListener('click', () => this.toggleTheme());
-        
-        // Help button
-        document.getElementById('helpBtn').addEventListener('click', () => {
-            document.getElementById('helpModal').classList.add('active');
-        });
-    }
-    
-    initNavigation() {
-        // Navigation buttons
-        document.querySelectorAll('.nav-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const screen = e.currentTarget.dataset.screen;
-                this.navigateTo(screen);
-            });
-        });
-        
-        // Back to questions button
-        document.getElementById('backToQuestionsBtn').addEventListener('click', () => {
-            this.navigateTo('questionnaire');
-        });
-        
-        // Update active nav button based on current screen
-        this.updateActiveNav();
-    }
-    
-    navigateTo(screenName) {
-        // Save current answer if we're leaving questionnaire
-        if (this.currentScreen === 'questionnaire') {
-            this.saveAnswer(document.getElementById('answerInput').value);
-        }
-        
-        // Show the requested screen
-        this.showScreen(screenName);
-        
-        // Update current screen
-        this.currentScreen = screenName;
-        
-        // Update active nav button
-        this.updateActiveNav();
-        
-        // If navigating to questionnaire, load current question
-        if (screenName === 'questionnaire') {
-            this.loadQuestion(this.currentQuestionIndex);
-        }
-        
-        // If navigating to kanban, ensure board is initialized
-        if (screenName === 'kanbanBoard') {
-            if (!this.kanbanBoard) {
-                this.kanbanBoard = new KanbanBoard(this.tasks);
-            }
-            this.updateStats();
-        }
-    }
-    
-    updateActiveNav() {
-        // Update nav buttons
-        document.querySelectorAll('.nav-btn').forEach(btn => {
-            if (btn.dataset.screen === this.currentScreen) {
-                btn.classList.add('active');
-            } else {
-                btn.classList.remove('active');
-            }
-        });
-    }
-    
-    initQuestionnaire() {
-        this.questions = QUESTIONS;
-        this.totalQuestions = this.questions.length;
-        
-        // Initialize answer input event
-        const answerInput = document.getElementById('answerInput');
-        answerInput.addEventListener('input', (e) => {
-            this.saveAnswer(e.target.value);
-            this.updateCharCounter();
-        });
-        
-        // Add keyboard shortcuts
-        answerInput.addEventListener('keydown', (e) => {
-            if (e.ctrlKey && e.key === 'Enter') {
-                e.preventDefault();
-                this.nextQuestion();
-            } else if (e.key === 'Escape') {
-                this.clearAnswer();
-            }
-        });
-    }
-    
-    initModals() {
-        // Task modal
-        this.taskModal = document.getElementById('taskModal');
-        this.taskForm = document.getElementById('taskForm');
-        
-        // Close modal buttons
-        document.querySelectorAll('.close-modal').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.querySelectorAll('.modal').forEach(modal => {
-                    modal.classList.remove('active');
-                });
-                this.taskForm.reset();
-            });
-        });
-        
-        // Close modals on outside click
-        document.querySelectorAll('.modal').forEach(modal => {
-            modal.addEventListener('click', (e) => {
-                if (e.target === modal) {
-                    modal.classList.remove('active');
-                    this.taskForm.reset();
-                }
-            });
-        });
-        
-        // Task form submission
-        this.taskForm.addEventListener('submit', (e) => {
+    // Add keyboard shortcuts
+    answerInput.addEventListener('keydown', (e) => {
+        if (e.ctrlKey && e.key === 'Enter') {
             e.preventDefault();
-            this.saveTask();
+            this.nextQuestion();
+        } else if (e.key === 'Escape') {
+            this.clearAnswer();
+        }
+    });
+}
+
+initModals() {
+    // Task modal
+    this.taskModal = document.getElementById('taskModal');
+    this.taskForm = document.getElementById('taskForm');
+    
+    // Close modal buttons
+    document.querySelectorAll('.close-modal').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.modal').forEach(modal => {
+                modal.classList.remove('active');
+            });
+            this.taskForm.reset();
         });
-        
-        // Help modal
-        this.helpModal = document.getElementById('helpModal');
-    }
+    });
+    
+    // Close modals on outside click
+    document.querySelectorAll('.modal').forEach(modal => {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.classList.remove('active');
+                this.taskForm.reset();
+            }
+        });
+    });
+    
+    // Task form submission
+    this.taskForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        this.saveTask();
+    });
+    
+    // Help modal
+    this.helpModal = document.getElementById('helpModal');
+}
+    
     
     initDragAndDrop() {
         // This will be initialized by the KanbanBoard class
