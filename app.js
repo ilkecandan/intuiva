@@ -413,39 +413,43 @@ if (document.getElementById('clearAllBtn')) {
         }, 1500);
     }
     
-    generateTasksBasedOnAnswers() {
-        const tasks = [];
-        
-        // Analyze answers and generate relevant tasks
-        Object.entries(this.answers).forEach(([index, answer]) => {
-            if (answer === '[Skipped]' || answer === '[Not Applicable]') return;
-            
-            const question = this.questions[parseInt(index)];
-            const category = question.category;
-            
-            // Generate tasks based on category and answer
-            const categoryTasks = this.generateTasksForCategory(category, answer);
-            tasks.push(...categoryTasks);
-        });
-        
-        // Add default tasks if no answers generated tasks
-        if (tasks.length === 0) {
-            return this.generateDefaultTasks();
-        }
-        
-        // Remove duplicates based on title
-        const uniqueTasks = [];
-        const titles = new Set();
-        
-        tasks.forEach(task => {
-            if (!titles.has(task.title)) {
-                titles.add(task.title);
-                uniqueTasks.push(task);
-            }
-        });
-        
-        return uniqueTasks;
+generateTasksBasedOnAnswers() {
+    // If there are no answers at all, return empty array
+    const hasValidAnswers = Object.values(this.answers).some(answer => 
+        answer && answer !== '[Skipped]' && answer !== '[Not Applicable]'
+    );
+    
+    if (!hasValidAnswers) {
+        return [];
     }
+    
+    const tasks = [];
+    
+    // Analyze answers and generate relevant tasks
+    Object.entries(this.answers).forEach(([index, answer]) => {
+        if (answer === '[Skipped]' || answer === '[Not Applicable]') return;
+        
+        const question = this.questions[parseInt(index)];
+        const category = question.category;
+        
+        // Generate tasks based on category and answer
+        const categoryTasks = this.generateTasksForCategory(category, answer);
+        tasks.push(...categoryTasks);
+    });
+    
+    // Remove duplicates based on title
+    const uniqueTasks = [];
+    const titles = new Set();
+    
+    tasks.forEach(task => {
+        if (!titles.has(task.title)) {
+            titles.add(task.title);
+            uniqueTasks.push(task);
+        }
+    });
+    
+    return uniqueTasks;
+}
     
     generateTasksForCategory(category, answer) {
         const tasks = [];
