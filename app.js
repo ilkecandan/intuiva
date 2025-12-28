@@ -1,868 +1,474 @@
+import { LEAN_QUESTIONS, TASK_TEMPLATES, STORAGE_KEYS } from './data.js';
+
 class IntuivaApp {
     constructor() {
-        this.questions = this.getQuestions();
         this.currentQuestionIndex = 0;
-        this.answers = {};
-        this.tasks = [];
-        this.projectName = "My Project";
+        this.userAnswers = this.loadAnswers();
+        this.answerType = 'text';
+        this.totalQuestions = LEAN_QUESTIONS.reduce((total, category) => total + category.questions.length, 0);
         
-        this.initializeApp();
-        this.setupEventListeners();
-        this.loadFromStorage();
+        this.init();
     }
 
-    getQuestions() {
-        return [
-            {
-                id: "customer",
-                title: "Who is the primary customer for this workflow?",
-                description: "Identify the main beneficiary of your work. Is it an end-user, internal team, stakeholder, or someone else?"
-            },
-            {
-                id: "definitionOfDone",
-                title: "What is the single, clearest definition of 'Done'?",
-                description: "Describe what indicates value was delivered to the customer in concrete terms."
-            },
-            {
-                id: "specificOutcome",
-                title: "What specific outcome does this process exist to create?",
-                description: "What is the primary result or deliverable this workflow produces?"
-            },
-            {
-                id: "delaySources",
-                title: "What are the 3 biggest sources of delay or frustration in our current process?",
-                description: "Identify waiting, transport, or other workflow inefficiencies."
-            },
-            {
-                id: "reworkAreas",
-                title: "Where do we most often have to do rework?",
-                description: "Identify areas where defects or misunderstandings occur."
-            },
-            {
-                id: "unusedWork",
-                title: "Do we ever build things that aren't used or requested?",
-                description: "Identify overproduction waste in your current process."
-            },
-            {
-                id: "actualSteps",
-                title: "Let's walk through the last 3-5 items we completed.",
-                description: "What were all the steps they actually went through, from request to delivery?"
-            },
-            {
-                id: "valueAddSteps",
-                title: "Which steps add direct value vs. which are overhead?",
-                description: "Differentiate between value-add steps and movement/waiting/control steps."
-            },
-            {
-                id: "waitingPoints",
-                title: "Where do items typically wait or get queued up?",
-                description: "Identify natural bottlenecks in your workflow."
-            },
-            {
-                id: "informalSteps",
-                title: "Are there invisible or informal steps?",
-                description: "Identify steps like impromptu chats for approval that should be visible."
-            },
-            {
-                id: "workloadPerStage",
-                title: "What is our current average workload per person/team at each stage?",
-                description: "Help set reasonable WIP limits to prevent overload."
-            },
-            {
-                id: "wipPolicy",
-                title: "What is our policy when a WIP limit is reached?",
-                description: "Do we stop and swarm, review processes, or take other actions?"
-            },
-            {
-                id: "definitionOfReady",
-                title: "What does 'Ready for QA' actually mean?",
-                description: "Define explicit policies for moving items between columns."
-            },
-            {
-                id: "blockedItems",
-                title: "How will we visualize and handle blocked items?",
-                description: "Define process for red stickies, blocker tags, or special columns."
-            },
-            {
-                id: "workTriggers",
-                title: "What triggers the start of new work?",
-                description: "Is it when a slot opens, or scheduled planning meetings?"
-            },
-            {
-                id: "backlogVisualization",
-                title: "How will we visualize and prioritize the backlog?",
-                description: "Define how items get 'pulled' into the first value-add column."
-            },
-            {
-                id: "flowMetrics",
-                title: "What key metrics will we track to measure flow?",
-                description: "Consider Cycle Time, Throughput, or Cumulative Flow Diagrams."
-            },
-            {
-                id: "reviewFrequency",
-                title: "How often will we review the board's design and metrics?",
-                description: "Weekly? At a dedicated Kanban meeting?"
-            },
-            {
-                id: "escalationPath",
-                title: "What is our escalation path for chronic bottlenecks?",
-                description: "Define process for addressing broken workflows."
-            },
-            {
-                id: "boardLevel",
-                title: "Is this board for a team, service, or portfolio?",
-                description: "Determine strategic vs. operational level."
+    init() {
+        // Initialize event listeners
+        this.initEventListeners();
+        this.initTheme();
+        
+        // Check if user has completed questionnaire
+        if (this.userAnswers.length > 0 && this.userAnswers.length >= this.totalQuestions) {
+            this.showKanbanBoard();
+        } else {
+            this.showWelcomeModal();
+        }
+        
+        // Update progress
+        this.updateProgress();
+    }
+
+    initEventListeners() {
+        // Navigation buttons
+        document.getElementById('nextBtn').addEventListener('click', () => this.nextQuestion());
+        document.getElementById('prevBtn').addEventListener('click', () => this.prevQuestion());
+        document.getElementById('skipBtn').addEventListener('click', () => this.skipQuestion());
+        
+        // Answer type selector
+        document.querySelectorAll('.answer-type').forEach(btn => {
+            btn.addEventListener('click', (e) => this.changeAnswerType(e));
+        });
+        
+        // Text input
+        document.getElementById('answerInput').addEventListener('input', (e) => this.updateWordCount(e));
+        
+        // Theme toggle
+        document.getElementById('themeToggle').addEventListener('click', () => this.toggleTheme());
+        
+        // Export button
+        document.getElementById('exportBtn').addEventListener('click', () => this.showExportModal());
+        
+        // Start button in welcome modal
+        document.getElementById('startBtn').addEventListener('click', () => this.startQuestionnaire());
+        
+        // Modal close buttons
+        document.querySelectorAll('.modal-close, .modal-cancel').forEach(btn => {
+            btn.addEventListener('click', () => this.closeModal(btn.closest('.modal')));
+        });
+        
+        // Task modal save
+        document.querySelector('.modal-save')?.addEventListener('click', () => this.saveTask());
+        
+        // Export options
+        document.querySelectorAll('.export-option').forEach(option => {
+            option.addEventListener('click', (e) => this.exportData(e.target.dataset.format));
+        });
+        
+        // Window events
+        window.addEventListener('beforeunload', () => this.saveAnswers());
+    }
+
+    initTheme() {
+        const savedTheme = localStorage.getItem('intuiva_theme') || 'light';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+        this.updateThemeIcon(savedTheme);
+    }
+
+    toggleTheme() {
+        const currentTheme = document.documentElement.getAttribute('data-theme');
+        const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+        
+        document.documentElement.setAttribute('data-theme', newTheme);
+        localStorage.setItem('intuiva_theme', newTheme);
+        this.updateThemeIcon(newTheme);
+    }
+
+    updateThemeIcon(theme) {
+        const icon = document.querySelector('#themeToggle i');
+        icon.className = theme === 'light' ? 'fas fa-moon' : 'fas fa-sun';
+    }
+
+    showWelcomeModal() {
+        const modal = document.getElementById('welcomeModal');
+        modal.classList.add('active');
+    }
+
+    startQuestionnaire() {
+        this.closeModal(document.getElementById('welcomeModal'));
+        this.showQuestionFlow();
+        this.loadQuestion();
+    }
+
+    showQuestionFlow() {
+        document.getElementById('questionFlow').classList.add('active');
+        document.getElementById('kanbanBoard').classList.remove('active');
+    }
+
+    showKanbanBoard() {
+        document.getElementById('questionFlow').classList.remove('active');
+        document.getElementById('kanbanBoard').classList.add('active');
+        
+        // Initialize Kanban board if not already done
+        if (typeof window.kanban === 'undefined') {
+            window.kanban = new KanbanBoard();
+        }
+    }
+
+    loadQuestion() {
+        const { category, questionIndex } = this.getCurrentQuestionInfo();
+        const question = LEAN_QUESTIONS[category.index].questions[questionIndex];
+        
+        // Update UI
+        document.getElementById('categoryTitle').textContent = category.name;
+        document.getElementById('categoryDescription').textContent = category.description;
+        document.getElementById('currentQuestion').textContent = question;
+        document.getElementById('questionNumber').textContent = `Q${this.currentQuestionIndex + 1}`;
+        
+        // Load saved answer if exists
+        const savedAnswer = this.userAnswers[this.currentQuestionIndex];
+        if (savedAnswer) {
+            document.getElementById('answerInput').value = savedAnswer.text || '';
+            this.updateWordCount();
+        } else {
+            document.getElementById('answerInput').value = '';
+        }
+        
+        // Update progress
+        this.updateProgress();
+    }
+
+    getCurrentQuestionInfo() {
+        let questionCount = 0;
+        for (let i = 0; i < LEAN_QUESTIONS.length; i++) {
+            const category = LEAN_QUESTIONS[i];
+            if (this.currentQuestionIndex < questionCount + category.questions.length) {
+                return {
+                    category: {
+                        index: i,
+                        name: category.category,
+                        description: category.description
+                    },
+                    questionIndex: this.currentQuestionIndex - questionCount
+                };
             }
-        ];
+            questionCount += category.questions.length;
+        }
+        return null;
     }
 
-   // In your initializeApp() method, add this:
-initializeApp() {
-    this.updateQuestionDisplay();
-    this.createNavigationDots();
-    this.updateProgressBar();
-    
-    // Check if onboarding is already complete
-    if (localStorage.getItem('intuiva_onboarding_complete')) {
-        this.showApp();
-    }
-    
-    // Make sure we have a backend URL
-    console.log('Backend URL will be:', this.getBackendUrl());
-}
-
-// Update the updateQuestionDisplay() method:
-updateQuestionDisplay() {
-    const currentQuestion = this.questions[this.currentQuestionIndex];
-    
-    document.getElementById('questionTitle').textContent = currentQuestion.title;
-    document.getElementById('questionDescription').textContent = currentQuestion.description;
-    
-    const answerInput = document.getElementById('answerInput');
-    answerInput.value = this.answers[currentQuestion.id] || '';
-    this.updateWordCount();
-    
-    this.updateNavigationDots();
-    this.updateProgressBar();
-    
-    // Update button states
-    const prevBtn = document.getElementById('prevBtn');
-    const nextBtn = document.getElementById('nextBtn');
-    const generateBtn = document.getElementById('generateBoardBtn');
-    
-    prevBtn.style.display = this.currentQuestionIndex === 0 ? 'none' : 'flex';
-    
-    if (this.currentQuestionIndex === this.questions.length - 1) {
-        // Last question - show Generate Board button
-        nextBtn.classList.add('hidden');
-        if (generateBtn) {
-            generateBtn.classList.remove('hidden');
+    nextQuestion() {
+        this.saveCurrentAnswer();
+        
+        if (this.currentQuestionIndex < this.totalQuestions - 1) {
+            this.currentQuestionIndex++;
+            this.loadQuestion();
         } else {
-            // Fallback if generate button doesn't exist
-            nextBtn.innerHTML = 'Generate Board <i class="fas fa-rocket"></i>';
-        }
-    } else {
-        // Not last question
-        nextBtn.classList.remove('hidden');
-        nextBtn.innerHTML = 'Next <i class="fas fa-arrow-right"></i>';
-        if (generateBtn) {
-            generateBtn.classList.add('hidden');
-        }
-    }
-}
-    createNavigationDots() {
-        const navDots = document.getElementById('navDots');
-        navDots.innerHTML = '';
-        
-        this.questions.forEach((_, index) => {
-            const dot = document.createElement('div');
-            dot.className = 'nav-dot';
-            if (index === 0) dot.classList.add('active');
-            dot.addEventListener('click', () => this.navigateToQuestion(index));
-            navDots.appendChild(dot);
-        });
-    }
-
-    updateNavigationDots() {
-        const dots = document.querySelectorAll('.nav-dot');
-        dots.forEach((dot, index) => {
-            dot.classList.toggle('active', index === this.currentQuestionIndex);
-            dot.classList.toggle('answered', !!this.answers[this.questions[index].id]);
-        });
-    }
-
-    updateProgressBar() {
-        const progressBar = document.getElementById('progressBar');
-        const progress = ((this.currentQuestionIndex + 1) / this.questions.length) * 100;
-        progressBar.style.width = `${progress}%`;
-        
-        document.getElementById('currentQuestion').textContent = this.currentQuestionIndex + 1;
-        document.getElementById('totalQuestions').textContent = this.questions.length;
-    }
-
-    updateQuestionDisplay() {
-        const currentQuestion = this.questions[this.currentQuestionIndex];
-        
-        document.getElementById('questionTitle').textContent = currentQuestion.title;
-        document.getElementById('questionDescription').textContent = currentQuestion.description;
-        
-        const answerInput = document.getElementById('answerInput');
-        answerInput.value = this.answers[currentQuestion.id] || '';
-        this.updateWordCount();
-        
-        this.updateNavigationDots();
-        this.updateProgressBar();
-        
-        // Update button states
-        document.getElementById('prevBtn').style.display = 
-            this.currentQuestionIndex === 0 ? 'none' : 'flex';
-            
-        const nextBtn = document.getElementById('nextBtn');
-        if (this.currentQuestionIndex === this.questions.length - 1) {
-            nextBtn.innerHTML = 'Generate Board <i class="fas fa-rocket"></i>';
-        } else {
-            nextBtn.innerHTML = 'Next <i class="fas fa-arrow-right"></i>';
+            this.completeQuestionnaire();
         }
     }
 
-    updateWordCount() {
-        const text = document.getElementById('answerInput').value;
-        const wordCount = text.trim() === '' ? 0 : text.trim().split(/\s+/).length;
-        document.getElementById('wordCount').textContent = `${wordCount} words`;
+    prevQuestion() {
+        if (this.currentQuestionIndex > 0) {
+            this.currentQuestionIndex--;
+            this.loadQuestion();
+        }
+    }
+
+    skipQuestion() {
+        this.userAnswers[this.currentQuestionIndex] = { text: '', skipped: true };
+        this.nextQuestion();
     }
 
     saveCurrentAnswer() {
-        const currentQuestion = this.questions[this.currentQuestionIndex];
-        const answer = document.getElementById('answerInput').value.trim();
-        
-        if (answer) {
-            this.answers[currentQuestion.id] = answer;
-        } else {
-            delete this.answers[currentQuestion.id];
-        }
+        const answerText = document.getElementById('answerInput').value.trim();
+        this.userAnswers[this.currentQuestionIndex] = {
+            text: answerText,
+            skipped: false,
+            timestamp: new Date().toISOString()
+        };
     }
 
-    navigateToQuestion(index) {
-        if (index < 0 || index >= this.questions.length) return;
+    changeAnswerType(e) {
+        const type = e.target.dataset.type;
+        this.answerType = type;
         
+        // Update UI
+        document.querySelectorAll('.answer-type').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        e.target.classList.add('active');
+        
+        // Change input type if needed
+        // Currently using textarea for all types
+    }
+
+    updateWordCount(e) {
+        const text = document.getElementById('answerInput').value;
+        const wordCount = text.trim().split(/\s+/).filter(word => word.length > 0).length;
+        document.getElementById('wordCount').textContent = `${wordCount} words`;
+    }
+
+    updateProgress() {
+        const progress = ((this.currentQuestionIndex + 1) / this.totalQuestions) * 100;
+        document.getElementById('progressFill').style.width = `${progress}%`;
+        
+        const { category } = this.getCurrentQuestionInfo();
+        document.getElementById('progressText').textContent = category.name;
+        document.getElementById('questionCounter').textContent = 
+            `Question ${this.currentQuestionIndex + 1} of ${this.totalQuestions}`;
+    }
+
+    async completeQuestionnaire() {
         this.saveCurrentAnswer();
-        this.currentQuestionIndex = index;
-        this.updateQuestionDisplay();
+        this.saveAnswers();
+        
+        // Generate tasks from answers
+        const tasks = await this.generateTasksFromAnswers();
+        
+        // Save tasks
+        localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(tasks));
+        
+        // Show Kanban board
+        this.showKanbanBoard();
+        
+        // Show notification
+        this.showNotification('Questionnaire completed! Tasks have been generated.', 'success');
     }
 
-    async submitAnswers() {
-    this.saveCurrentAnswer();
-    
-    // Check if we have enough answers
-    const answeredQuestions = Object.keys(this.answers).length;
-    if (answeredQuestions < 5) {
-        this.showToast('Please answer at least 5 questions for better AI analysis', 'warning');
-        return;
-    }
-    
-    // Show AI processing modal
-    this.showAIProcessing();
-    
-    try {
-        const backendUrl = this.getBackendUrl();
-        console.log('Sending request to:', backendUrl);
+    async generateTasksFromAnswers() {
+        const tasks = [];
+        const usedTemplates = new Set();
         
-        // Prepare request data
-        const requestData = {
-            answers: this.answers,
-            projectName: this.projectName || "My Project"
-        };
-        
-        console.log('Request data:', requestData);
-        
-        // Send answers to backend for AI processing
-        const response = await fetch(`${backendUrl}/api/ai/analyze`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            },
-            body: JSON.stringify(requestData)
-        });
-        
-        console.log('Response status:', response.status);
-        
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('Server error:', errorText);
-            throw new Error(`Server responded with ${response.status}: ${errorText}`);
-        }
-        
-        const data = await response.json();
-        console.log('AI Response data:', data);
-        
-        if (data.success && data.tasks) {
-            // Generate tasks from AI analysis
-            this.generateTasksFromAI(data.tasks);
-            
-            // Save to localStorage
-            this.saveToStorage();
-            
-            // Mark onboarding as complete
-            localStorage.setItem('intuiva_onboarding_complete', 'true');
-            
-            // Hide onboarding and show main app
-            setTimeout(() => {
-                this.hideAIProcessing();
-                this.showApp();
-                this.showToast('Kanban board generated successfully!', 'success');
+        // Generate tasks for each answered question
+        this.userAnswers.forEach((answer, index) => {
+            if (!answer.skipped && answer.text.trim().length > 0) {
+                const { category } = this.getQuestionInfoByIndex(index);
+                const templates = TASK_TEMPLATES[category.name] || [];
                 
-                // Log the generated tasks
-                console.log('Generated tasks:', this.tasks);
-            }, 1000);
-        } else {
-            throw new Error(data.message || 'Invalid response from server');
-        }
-        
-    } catch (error) {
-        console.error('Error submitting answers:', error);
-        this.hideAIProcessing();
-        
-        // Show detailed error
-        this.showToast(`Error: ${error.message}. Using fallback tasks.`, 'error');
-        
-        // Fallback: Generate sample tasks
-        this.generateSampleTasks();
-        localStorage.setItem('intuiva_onboarding_complete', 'true');
-        
-        // Small delay before showing app
-        setTimeout(() => {
-            this.showApp();
-        }, 500);
-    }
-}
-
-    generateTasksFromAI(aiTasks) {
-        this.tasks = aiTasks.map((task, index) => ({
-            id: `task-${Date.now()}-${index}`,
-            title: task.title,
-            description: task.description || '',
-            column: 'todo',
-            priority: task.priority || 'medium',
-            assignee: task.assignee || 'unassigned',
-            dueDate: task.dueDate || this.getFutureDate(7),
-            tags: task.tags || [],
-            createdAt: new Date().toISOString()
-        }));
-        
-        this.renderTasks();
-    }
-
-    generateSampleTasks() {
-        this.tasks = [
-            {
-                id: 'task-1',
-                title: 'Define project scope and objectives',
-                description: 'Clearly outline what the project will deliver and its success criteria',
-                column: 'todo',
-                priority: 'high',
-                assignee: 'john',
-                dueDate: this.getFutureDate(2),
-                tags: ['planning', 'strategy'],
-                createdAt: new Date().toISOString()
-            },
-            {
-                id: 'task-2',
-                title: 'Set up development environment',
-                description: 'Configure all necessary tools, repositories, and access permissions',
-                column: 'todo',
-                priority: 'high',
-                assignee: 'sarah',
-                dueDate: this.getFutureDate(1),
-                tags: ['setup', 'devops'],
-                createdAt: new Date().toISOString()
-            },
-            {
-                id: 'task-3',
-                title: 'Create initial wireframes',
-                description: 'Design basic wireframes for key user interfaces',
-                column: 'todo',
-                priority: 'medium',
-                assignee: 'emma',
-                dueDate: this.getFutureDate(3),
-                tags: ['design', 'ui'],
-                createdAt: new Date().toISOString()
-            },
-            {
-                id: 'task-4',
-                title: 'Implement authentication system',
-                description: 'Set up user authentication and authorization',
-                column: 'todo',
-                priority: 'medium',
-                assignee: 'mike',
-                dueDate: this.getFutureDate(5),
-                tags: ['backend', 'security'],
-                createdAt: new Date().toISOString()
-            },
-            {
-                id: 'task-5',
-                title: 'Write unit tests for core modules',
-                description: 'Create comprehensive test coverage for critical components',
-                column: 'todo',
-                priority: 'low',
-                assignee: 'john',
-                dueDate: this.getFutureDate(7),
-                tags: ['testing', 'quality'],
-                createdAt: new Date().toISOString()
+                if (templates.length > 0) {
+                    // Select a random template that hasn't been used for this category
+                    const availableTemplates = templates.filter(t => 
+                        !usedTemplates.has(`${category.name}-${t.template}`)
+                    );
+                    
+                    if (availableTemplates.length > 0) {
+                        const template = availableTemplates[Math.floor(Math.random() * availableTemplates.length)];
+                        usedTemplates.add(`${category.name}-${template.template}`);
+                        
+                        // Generate task title by replacing placeholder
+                        const title = template.template.replace('{answer}', 
+                            this.extractKeyPhrase(answer.text) || 'the process');
+                        
+                        const task = {
+                            id: `task-${Date.now()}-${tasks.length}`,
+                            title: title,
+                            description: answer.text.substring(0, 200) + (answer.text.length > 200 ? '...' : ''),
+                            column: 'todo',
+                            priority: template.priority,
+                            assignee: this.getRandomAssignee(),
+                            estimate: this.getRandomEstimate(template.priority),
+                            category: template.category,
+                            createdAt: new Date().toISOString(),
+                            sourceQuestion: index
+                        };
+                        
+                        tasks.push(task);
+                    }
+                }
             }
-        ];
-        
-        this.renderTasks();
-    }
-
-    getFutureDate(days) {
-        const date = new Date();
-        date.setDate(date.getDate() + days);
-        return date.toISOString().split('T')[0];
-    }
-
-    showApp() {
-        document.getElementById('onboardingModal').classList.add('hidden');
-        document.getElementById('appContainer').classList.remove('hidden');
-        this.updateStats();
-        
-        // Initialize drag and drop
-        this.initializeDragAndDrop();
-    }
-
-    showAIProcessing() {
-        const modal = document.getElementById('aiProcessingModal');
-        modal.classList.remove('hidden');
-        
-        // Simulate progress
-        let progress = 0;
-        const progressBar = document.getElementById('aiProgressBar');
-        const statusMessage = document.getElementById('aiStatusMessage');
-        
-        const messages = [
-            "Analyzing your workflow patterns...",
-            "Identifying key deliverables...",
-            "Generating task structure...",
-            "Applying lean principles...",
-            "Creating Kanban board..."
-        ];
-        
-        const interval = setInterval(() => {
-            progress += 20;
-            progressBar.style.width = `${progress}%`;
-            
-            if (progress <= 100) {
-                statusMessage.textContent = messages[Math.floor(progress / 20)] || messages[messages.length - 1];
-            }
-            
-            if (progress >= 100) {
-                clearInterval(interval);
-            }
-        }, 500);
-    }
-
-    hideAIProcessing() {
-        document.getElementById('aiProcessingModal').classList.add('hidden');
-    }
-
-    setupEventListeners() {
-        // Question navigation
-        document.getElementById('prevBtn').addEventListener('click', () => {
-            this.navigateToQuestion(this.currentQuestionIndex - 1);
         });
         
-        document.getElementById('nextBtn').addEventListener('click', () => {
-            if (this.currentQuestionIndex === this.questions.length - 1) {
-                this.submitAnswers();
+        return tasks;
+    }
+
+    getQuestionInfoByIndex(index) {
+        let questionCount = 0;
+        for (let i = 0; i < LEAN_QUESTIONS.length; i++) {
+            const category = LEAN_QUESTIONS[i];
+            if (index < questionCount + category.questions.length) {
+                return {
+                    category: {
+                        index: i,
+                        name: category.category,
+                        description: category.description
+                    },
+                    questionIndex: index - questionCount
+                };
+            }
+            questionCount += category.questions.length;
+        }
+        return null;
+    }
+
+    extractKeyPhrase(text) {
+        // Simple key phrase extraction
+        const sentences = text.split(/[.!?]+/);
+        if (sentences.length > 0) {
+            const firstSentence = sentences[0].trim();
+            const words = firstSentence.split(/\s+/);
+            if (words.length <= 8) {
+                return firstSentence;
             } else {
-                this.navigateToQuestion(this.currentQuestionIndex + 1);
+                return words.slice(0, 5).join(' ') + '...';
             }
-        });
-        
-        document.getElementById('skipBtn').addEventListener('click', () => {
-            this.navigateToQuestion(this.currentQuestionIndex + 1);
-        });
-        
-        // Answer input
-        document.getElementById('answerInput').addEventListener('input', () => {
-            this.updateWordCount();
-        });
-        
-        // Task modal
-        document.getElementById('addTaskBtn').addEventListener('click', () => {
-            this.showTaskModal();
-        });
-        
-        document.querySelectorAll('.add-task-column').forEach(button => {
-            button.addEventListener('click', (e) => {
-                const column = e.target.closest('button').dataset.column;
-                this.showTaskModal(column);
-            });
-        });
-        
-        document.getElementById('taskForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.saveTask();
-        });
-        
-        // Modal close buttons
-        document.querySelectorAll('.close-modal').forEach(button => {
-            button.addEventListener('click', () => {
-                this.closeAllModals();
-            });
-        });
-        
-        // Settings
-        document.getElementById('settingsBtn').addEventListener('click', () => {
-            this.showSettingsModal();
-        });
-        
-        document.getElementById('saveSettings').addEventListener('click', () => {
-            this.saveSettings();
-        });
-        
-        // Close modals on outside click
-        window.addEventListener('click', (e) => {
-            if (e.target.classList.contains('modal')) {
-                this.closeAllModals();
-            }
-        });
-    }
-
-    showTaskModal(column = 'todo', taskId = null) {
-        const modal = document.getElementById('taskModal');
-        const form = document.getElementById('taskForm');
-        const title = document.getElementById('taskModalTitle');
-        
-        if (taskId) {
-            // Edit existing task
-            const task = this.tasks.find(t => t.id === taskId);
-            if (task) {
-                title.textContent = 'Edit Task';
-                document.getElementById('taskTitle').value = task.title;
-                document.getElementById('taskDescription').value = task.description;
-                document.getElementById('taskPriority').value = task.priority;
-                document.getElementById('taskAssignee').value = task.assignee;
-                document.getElementById('taskDueDate').value = task.dueDate;
-                document.getElementById('taskColumn').value = task.column;
-                document.getElementById('taskTags').value = task.tags.join(', ');
-                
-                // Store task ID for updating
-                form.dataset.taskId = taskId;
-            }
-        } else {
-            // Create new task
-            title.textContent = 'Add New Task';
-            form.reset();
-            document.getElementById('taskColumn').value = column;
-            delete form.dataset.taskId;
         }
-        
-        modal.classList.remove('hidden');
+        return null;
     }
 
-    saveTask() {
-        const form = document.getElementById('taskForm');
-        const taskId = form.dataset.taskId;
-        
-        const task = {
-            id: taskId || `task-${Date.now()}`,
-            title: document.getElementById('taskTitle').value,
-            description: document.getElementById('taskDescription').value,
-            column: document.getElementById('taskColumn').value,
-            priority: document.getElementById('taskPriority').value,
-            assignee: document.getElementById('taskAssignee').value,
-            dueDate: document.getElementById('taskDueDate').value,
-            tags: document.getElementById('taskTags').value
-                .split(',')
-                .map(tag => tag.trim())
-                .filter(tag => tag),
-            createdAt: taskId ? this.tasks.find(t => t.id === taskId)?.createdAt : new Date().toISOString()
+    getRandomAssignee() {
+        const assignees = ['Product Owner', 'Project Manager', 'Team Lead', 'Developer', 'QA Engineer', 'Designer'];
+        return assignees[Math.floor(Math.random() * assignees.length)];
+    }
+
+    getRandomEstimate(priority) {
+        const estimates = {
+            'low': [1, 2, 3],
+            'medium': [2, 3, 5],
+            'high': [3, 5, 8],
+            'critical': [5, 8, 13]
         };
-        
-        if (taskId) {
-            // Update existing task
-            const index = this.tasks.findIndex(t => t.id === taskId);
-            if (index !== -1) {
-                this.tasks[index] = task;
+        const options = estimates[priority] || estimates.medium;
+        return options[Math.floor(Math.random() * options.length)];
+    }
+
+    loadAnswers() {
+        try {
+            const saved = localStorage.getItem(STORAGE_KEYS.ANSWERS);
+            return saved ? JSON.parse(saved) : [];
+        } catch (error) {
+            console.error('Error loading answers:', error);
+            return [];
+        }
+    }
+
+    saveAnswers() {
+        try {
+            localStorage.setItem(STORAGE_KEYS.ANSWERS, JSON.stringify(this.userAnswers));
+        } catch (error) {
+            console.error('Error saving answers:', error);
+        }
+    }
+
+    showExportModal() {
+        document.getElementById('exportModal').classList.add('active');
+    }
+
+    exportData(format) {
+        const data = {
+            answers: this.userAnswers,
+            tasks: JSON.parse(localStorage.getItem(STORAGE_KEYS.TASKS) || '[]'),
+            metadata: {
+                exportedAt: new Date().toISOString(),
+                app: 'Intuiva',
+                version: '1.0.0'
             }
-        } else {
-            // Add new task
-            this.tasks.push(task);
+        };
+
+        let content, mimeType, filename;
+
+        switch (format) {
+            case 'json':
+                content = JSON.stringify(data, null, 2);
+                mimeType = 'application/json';
+                filename = 'intuiva-export.json';
+                break;
+                
+            case 'csv':
+                content = this.convertToCSV(data);
+                mimeType = 'text/csv';
+                filename = 'intuiva-export.csv';
+                break;
+                
+            case 'text':
+                content = this.convertToText(data);
+                mimeType = 'text/plain';
+                filename = 'intuiva-export.txt';
+                break;
         }
-        
-        this.renderTasks();
-        this.closeAllModals();
-        this.showToast(`Task "${task.title}" ${taskId ? 'updated' : 'created'} successfully!`, 'success');
-        this.saveToStorage();
+
+        this.downloadFile(content, mimeType, filename);
+        this.closeModal(document.getElementById('exportModal'));
+        this.showNotification('Data exported successfully!', 'success');
     }
 
-    deleteTask(taskId) {
-        if (confirm('Are you sure you want to delete this task?')) {
-            this.tasks = this.tasks.filter(task => task.id !== taskId);
-            this.renderTasks();
-            this.showToast('Task deleted successfully!', 'success');
-            this.saveToStorage();
-        }
-    }
-
-    moveTask(taskId, newColumn) {
-        const task = this.tasks.find(t => t.id === taskId);
-        if (task) {
-            task.column = newColumn;
-            this.renderTasks();
-            this.saveToStorage();
+    convertToCSV(data) {
+        let csv = 'Question,Answer,Skipped\n';
+        data.answers.forEach((answer, index) => {
+            const questionInfo = this.getQuestionInfoByIndex(index);
+            const question = questionInfo ? 
+                LEAN_QUESTIONS[questionInfo.category.index].questions[questionInfo.questionIndex] : 
+                `Question ${index + 1}`;
             
-            // Update stats
-            this.updateStats();
-        }
+            const escapedAnswer = answer.text.replace(/"/g, '""');
+            csv += `"${question}","${escapedAnswer}",${answer.skipped ? 'Yes' : 'No'}\n`;
+        });
+        return csv;
     }
 
-    renderTasks() {
-        // Clear all columns
-        ['todo', 'progress', 'done'].forEach(column => {
-            const columnEl = document.getElementById(`${column}Column`);
-            columnEl.innerHTML = '';
-        });
+    convertToText(data) {
+        let text = 'INTUIVA PROJECT EXPORT\n';
+        text += '='.repeat(50) + '\n\n';
         
-        // Add tasks to their columns
-        this.tasks.forEach(task => {
-            const columnEl = document.getElementById(`${task.column}Column`);
-            if (columnEl) {
-                columnEl.appendChild(this.createTaskElement(task));
+        text += 'QUESTIONNAIRE ANSWERS\n';
+        text += '-'.repeat(30) + '\n\n';
+        
+        data.answers.forEach((answer, index) => {
+            const questionInfo = this.getQuestionInfoByIndex(index);
+            if (questionInfo) {
+                const category = LEAN_QUESTIONS[questionInfo.category.index];
+                const question = category.questions[questionInfo.questionIndex];
+                
+                text += `Category: ${category.category}\n`;
+                text += `Question ${index + 1}: ${question}\n`;
+                text += `Answer: ${answer.skipped ? '[SKIPPED]' : answer.text}\n`;
+                text += '-'.repeat(20) + '\n\n';
             }
         });
         
-        // Update column counts
-        this.updateColumnCounts();
-        this.updateStats();
+        return text;
     }
 
-    createTaskElement(task) {
-        const taskEl = document.createElement('div');
-        taskEl.className = 'task-card';
-        taskEl.dataset.taskId = task.id;
-        taskEl.dataset.priority = task.priority;
-        taskEl.draggable = true;
-        
-        // Format due date
-        const dueDate = task.dueDate ? new Date(task.dueDate) : null;
-        const today = new Date();
-        const isOverdue = dueDate && dueDate < today && task.column !== 'done';
-        
-        taskEl.innerHTML = `
-            <div class="task-header">
-                <div class="task-title">${this.escapeHtml(task.title)}</div>
-                <div class="task-actions">
-                    <button class="edit-task" title="Edit">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <button class="delete-task" title="Delete">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
-            </div>
-            ${task.description ? `
-                <div class="task-description">${this.escapeHtml(task.description)}</div>
-            ` : ''}
-            <div class="task-footer">
-                <div class="task-tags">
-                    ${task.tags.map(tag => `
-                        <span class="task-tag">${this.escapeHtml(tag)}</span>
-                    `).join('')}
-                </div>
-                <div class="task-assignee">
-                    <div class="assignee-avatar">
-                        ${task.assignee === 'unassigned' ? '?' : task.assignee.charAt(0).toUpperCase()}
-                    </div>
-                    ${task.assignee === 'unassigned' ? 'Unassigned' : task.assignee}
-                </div>
-            </div>
-            ${dueDate ? `
-                <div class="task-due ${isOverdue ? 'overdue' : ''}">
-                    <i class="far fa-calendar"></i>
-                    ${dueDate.toLocaleDateString()}
-                    ${isOverdue ? '<i class="fas fa-exclamation-triangle" style="color: #ef4444; margin-left: 4px;"></i>' : ''}
-                </div>
-            ` : ''}
+    downloadFile(content, mimeType, filename) {
+        const blob = new Blob([content], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    closeModal(modal) {
+        modal.classList.remove('active');
+    }
+
+    showNotification(message, type = 'info') {
+        const notification = document.createElement('div');
+        notification.className = `notification ${type}`;
+        notification.innerHTML = `
+            <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'}"></i>
+            <span>${message}</span>
         `;
         
-        // Add event listeners
-        taskEl.querySelector('.edit-task').addEventListener('click', () => {
-            this.showTaskModal(null, task.id);
-        });
-        
-        taskEl.querySelector('.delete-task').addEventListener('click', () => {
-            this.deleteTask(task.id);
-        });
-        
-        // Drag events
-        taskEl.addEventListener('dragstart', (e) => {
-            e.dataTransfer.setData('text/plain', task.id);
-            taskEl.classList.add('dragging');
-        });
-        
-        taskEl.addEventListener('dragend', () => {
-            taskEl.classList.remove('dragging');
-            document.querySelectorAll('.column-content').forEach(col => {
-                col.classList.remove('drag-over');
-            });
-        });
-        
-        return taskEl;
-    }
-
-    initializeDragAndDrop() {
-        const columns = document.querySelectorAll('.column-content');
-        
-        columns.forEach(column => {
-            column.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                column.classList.add('drag-over');
-            });
-            
-            column.addEventListener('dragleave', () => {
-                column.classList.remove('drag-over');
-            });
-            
-            column.addEventListener('drop', (e) => {
-                e.preventDefault();
-                column.classList.remove('drag-over');
-                
-                const taskId = e.dataTransfer.getData('text/plain');
-                const newColumn = column.dataset.column;
-                
-                this.moveTask(taskId, newColumn);
-            });
-        });
-    }
-
-    updateColumnCounts() {
-        const counts = {
-            todo: this.tasks.filter(t => t.column === 'todo').length,
-            progress: this.tasks.filter(t => t.column === 'progress').length,
-            done: this.tasks.filter(t => t.column === 'done').length
-        };
-        
-        document.getElementById('todoColumnCount').textContent = counts.todo;
-        document.getElementById('progressColumnCount').textContent = counts.progress;
-        document.getElementById('doneColumnCount').textContent = counts.done;
-    }
-
-    updateStats() {
-        const todoCount = this.tasks.filter(t => t.column === 'todo').length;
-        const progressCount = this.tasks.filter(t => t.column === 'progress').length;
-        const doneCount = this.tasks.filter(t => t.column === 'done').length;
-        const totalCount = this.tasks.length;
-        
-        document.getElementById('todoCount').textContent = todoCount;
-        document.getElementById('progressCount').textContent = progressCount;
-        document.getElementById('doneCount').textContent = doneCount;
-        document.getElementById('totalCount').textContent = totalCount;
-    }
-
-    showSettingsModal() {
-        document.getElementById('settingsModal').classList.remove('hidden');
-    }
-
-    saveSettings() {
-        this.projectName = document.getElementById('boardName').value || 'My Project';
-        document.getElementById('projectName').textContent = this.projectName;
-        
-        // Save to localStorage
-        localStorage.setItem('intuiva_project_name', this.projectName);
-        
-        this.closeAllModals();
-        this.showToast('Settings saved successfully!', 'success');
-    }
-
-    closeAllModals() {
-        document.querySelectorAll('.modal').forEach(modal => {
-            if (!modal.classList.contains('hidden')) {
-                modal.classList.add('hidden');
-            }
-        });
-    }
-
-    showToast(message, type = 'info') {
-        const toast = document.getElementById('toast');
-        toast.textContent = message;
-        toast.className = `toast ${type}`;
-        toast.classList.add('show');
+        document.body.appendChild(notification);
         
         setTimeout(() => {
-            toast.classList.remove('show');
+            notification.classList.add('show');
+        }, 10);
+        
+        setTimeout(() => {
+            notification.classList.remove('show');
+            setTimeout(() => {
+                notification.remove();
+            }, 300);
         }, 3000);
     }
-
-    saveToStorage() {
-        localStorage.setItem('intuiva_tasks', JSON.stringify(this.tasks));
-        localStorage.setItem('intuiva_answers', JSON.stringify(this.answers));
-        localStorage.setItem('intuiva_project_name', this.projectName);
-    }
-
-    loadFromStorage() {
-        const savedTasks = localStorage.getItem('intuiva_tasks');
-        const savedAnswers = localStorage.getItem('intuiva_answers');
-        const savedProjectName = localStorage.getItem('intuiva_project_name');
-        
-        if (savedTasks) {
-            this.tasks = JSON.parse(savedTasks);
-        }
-        
-        if (savedAnswers) {
-            this.answers = JSON.parse(savedAnswers);
-        }
-        
-        if (savedProjectName) {
-            this.projectName = savedProjectName;
-            document.getElementById('projectName').textContent = this.projectName;
-        }
-    }
-
-getBackendUrl() {
-    // Development vs Production
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-        return "http://localhost:3000";
-    } else {
-        return "https://intuivabackend-production.up.railway.app";
-    }
-}
-
-    escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
-}
-
-// Service Worker Registration - UPDATED FOR GITHUB PAGES
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        // Get the current path - important for GitHub Pages subdirectory
-        const basePath = window.location.pathname.includes('/intuiva') 
-            ? '/intuiva/'  // ADD TRAILING SLASH HERE
-            : './';
-        
-        const swPath = `${basePath}service-worker.js`.replace('//', '/');
-        
-        console.log('Registering Service Worker at:', swPath);
-        console.log('With scope:', basePath);
-        
-        navigator.serviceWorker.register(swPath, {
-            scope: basePath
-        })
-        .then(registration => {
-            console.log('✅ ServiceWorker registration successful with scope:', registration.scope);
-            // ... rest of your code
-        })
-        .catch(err => {
-            console.error('❌ ServiceWorker registration failed: ', err);
-        });
-    });
 }
 
 // Initialize the app when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     window.intuivaApp = new IntuivaApp();
 });
+
+// Export for use in other modules
+export default IntuivaApp;
