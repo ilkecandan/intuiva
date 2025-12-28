@@ -210,23 +210,29 @@
         </div>
     </div>
 
-    <script src="data.js"></script>
-    <script src="app.js"></script>
-    <script src="kanban.js"></script>
+<!-- Remove the module imports and change script order -->
+<script src="data.js"></script>
+<script src="kanban.js"></script>
+<script src="app.js"></script>
+<!-- Remove the service worker registration from app.js and add it here -->
+<script>
+    // Register service worker
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('service-worker.js')
+                .then(registration => {
+                    console.log('ServiceWorker registration successful');
+                })
+                .catch(err => {
+                    console.log('ServiceWorker registration failed: ', err);
+                });
+        });
+    }
     
-    <script>
-        // Register service worker
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('service-worker.js')
-                    .then(registration => {
-                        console.log('ServiceWorker registration successful');
-                    })
-                    .catch(err => {
-                        console.log('ServiceWorker registration failed: ', err);
-                    });
-            });
-        }
-    </script>
+    // Initialize app when DOM is loaded
+    document.addEventListener('DOMContentLoaded', () => {
+        window.app = new IntuivaApp();
+    });
+</script>
 </body>
 </html>
