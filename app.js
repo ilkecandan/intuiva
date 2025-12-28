@@ -765,16 +765,46 @@ class IntuivaApp {
     }
 }
 
-// Service Worker Registration
+// Service Worker Registration - UPDATED FOR GITHUB PAGES
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/service-worker.js')
-            .then(registration => {
-                console.log('ServiceWorker registration successful');
-            })
-            .catch(err => {
-                console.log('ServiceWorker registration failed: ', err);
+        // Get the current path - important for GitHub Pages subdirectory
+        const basePath = window.location.pathname.includes('/intuiva') 
+            ? '/intuiva' 
+            : '';
+        
+        const swPath = `${basePath}/service-worker.js`;
+        
+        console.log('Registering Service Worker at:', swPath);
+        
+        navigator.serviceWorker.register(swPath, {
+            scope: basePath || './'
+        })
+        .then(registration => {
+            console.log('✅ ServiceWorker registration successful with scope:', registration.scope);
+            
+            // Check for updates
+            registration.addEventListener('updatefound', () => {
+                const newWorker = registration.installing;
+                console.log('🔄 ServiceWorker update found!');
+                
+                newWorker.addEventListener('statechange', () => {
+                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                        // New content is available
+                        console.log('📦 New content is available, please refresh.');
+                        if (confirm('New version of Intuiva available! Reload to update?')) {
+                            window.location.reload();
+                        }
+                    }
+                });
             });
+        })
+        .catch(err => {
+            console.error('❌ ServiceWorker registration failed: ', err);
+            
+            // Fallback: Don't break the app if service worker fails
+            console.log('Proceeding without Service Worker support');
+        });
     });
 }
 
