@@ -5,6 +5,7 @@ class IntuivaApp {
         this.tasks = [];
         this.kanbanBoard = null;
         this.isGeneratingTasks = false;
+        this.currentScreen = 'onboarding';
         
         this.init();
     }
@@ -19,6 +20,9 @@ class IntuivaApp {
         
         // Initialize buttons
         this.initButtons();
+        
+        // Initialize navigation
+        this.initNavigation();
         
         // Initialize questionnaire
         this.initQuestionnaire();
@@ -47,14 +51,14 @@ class IntuivaApp {
     initButtons() {
         // Start button
         document.getElementById('startBtn').addEventListener('click', () => {
-            this.showScreen('questionnaire');
+            this.navigateTo('questionnaire');
             this.loadQuestion(0);
         });
         
         // Skip to board button
         document.getElementById('skipBtn').addEventListener('click', () => {
             this.tasks = this.generateDefaultTasks();
-            this.showKanbanBoard();
+            this.navigateTo('kanbanBoard');
         });
         
         // Navigation buttons
@@ -85,6 +89,64 @@ class IntuivaApp {
         // Help button
         document.getElementById('helpBtn').addEventListener('click', () => {
             document.getElementById('helpModal').classList.add('active');
+        });
+    }
+    
+    initNavigation() {
+        // Navigation buttons
+        document.querySelectorAll('.nav-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const screen = e.currentTarget.dataset.screen;
+                this.navigateTo(screen);
+            });
+        });
+        
+        // Back to questions button
+        document.getElementById('backToQuestionsBtn').addEventListener('click', () => {
+            this.navigateTo('questionnaire');
+        });
+        
+        // Update active nav button based on current screen
+        this.updateActiveNav();
+    }
+    
+    navigateTo(screenName) {
+        // Save current answer if we're leaving questionnaire
+        if (this.currentScreen === 'questionnaire') {
+            this.saveAnswer(document.getElementById('answerInput').value);
+        }
+        
+        // Show the requested screen
+        this.showScreen(screenName);
+        
+        // Update current screen
+        this.currentScreen = screenName;
+        
+        // Update active nav button
+        this.updateActiveNav();
+        
+        // If navigating to questionnaire, load current question
+        if (screenName === 'questionnaire') {
+            this.loadQuestion(this.currentQuestionIndex);
+        }
+        
+        // If navigating to kanban, ensure board is initialized
+        if (screenName === 'kanbanBoard') {
+            if (!this.kanbanBoard) {
+                this.kanbanBoard = new KanbanBoard(this.tasks);
+            }
+            this.updateStats();
+        }
+    }
+    
+    updateActiveNav() {
+        // Update nav buttons
+        document.querySelectorAll('.nav-btn').forEach(btn => {
+            if (btn.dataset.screen === this.currentScreen) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
         });
     }
     
@@ -171,7 +233,11 @@ class IntuivaApp {
         // Show requested screen
         if (this.screens[screenName]) {
             this.screens[screenName].classList.add('active');
+            this.currentScreen = screenName;
         }
+        
+        // Update active nav button
+        this.updateActiveNav();
         
         // Initialize kanban board if showing kanban
         if (screenName === 'kanbanBoard' && !this.kanbanBoard) {
@@ -294,7 +360,7 @@ class IntuivaApp {
         // Simulate AI processing (in a real app, this would call an API)
         setTimeout(() => {
             this.tasks = this.generateTasksBasedOnAnswers();
-            this.showKanbanBoard();
+            this.navigateTo('kanbanBoard');
             
             // Reset button
             nextBtn.innerHTML = originalHtml;
@@ -502,13 +568,7 @@ class IntuivaApp {
     }
     
     showKanbanBoard() {
-        this.showScreen('kanbanBoard');
-        
-        // Update board stats
-        this.updateStats();
-        
-        // Save tasks to localStorage
-        this.saveToLocalStorage();
+        this.navigateTo('kanbanBoard');
     }
     
     updateStats() {
@@ -700,7 +760,11 @@ class IntuivaApp {
                 
                 // If we have tasks, show kanban board directly
                 if (this.tasks.length > 0) {
-                    this.showKanbanBoard();
+                    // Navigate to kanban board but don't reset screen
+                    if (!this.kanbanBoard) {
+                        this.kanbanBoard = new KanbanBoard(this.tasks);
+                    }
+                    this.updateStats();
                 }
             }
         } catch (e) {
