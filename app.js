@@ -55,12 +55,35 @@ class IntuivaApp {
             this.loadQuestion(0);
         });
         
-     // Skip to board button
+// Skip to board button
 document.getElementById('skipBtn').addEventListener('click', () => {
-    this.tasks = []; // Empty array instead of default tasks
-    this.answers = {}; // Also clear answers
+    // Clear all data
+    this.tasks = []; // Empty array
+    this.answers = {}; // Clear answers
     this.currentQuestionIndex = 0; // Reset question index
+    
+    // Clear localStorage to prevent loading old data
+    try {
+        localStorage.removeItem('intuiva-data');
+    } catch (e) {
+        console.warn('Failed to clear localStorage:', e);
+    }
+    
+    // Clear any existing kanban board
+    if (this.kanbanBoard) {
+        this.kanbanBoard.clearTasks();
+    }
+    
+    // Navigate to kanban board
     this.navigateTo('kanbanBoard');
+    
+    // Force an empty board
+    if (this.kanbanBoard) {
+        this.kanbanBoard.tasks = [];
+        this.kanbanBoard.renderTasks();
+        this.updateStats();
+    }
+    
     this.showToast('Started with empty board', 'info');
 });
         
@@ -753,26 +776,25 @@ document.getElementById('skipBtn').addEventListener('click', () => {
         }
     }
     
-    loadFromLocalStorage() {
-        try {
-            const data = JSON.parse(localStorage.getItem('intuiva-data'));
+loadFromLocalStorage() {
+    try {
+        const data = JSON.parse(localStorage.getItem('intuiva-data'));
+        
+        if (data) {
+            this.answers = data.answers || {};
+            this.tasks = data.tasks || [];
             
-            if (data) {
-                this.answers = data.answers || {};
-                this.tasks = data.tasks || [];
-                
-                // If we have tasks, show kanban board directly
-                if (this.tasks.length > 0) {
-                    // Navigate to kanban board but don't reset screen
-                    if (!this.kanbanBoard) {
-                        this.kanbanBoard = new KanbanBoard(this.tasks);
-                    }
-                    this.updateStats();
+            // Only show kanban board if there are actual tasks
+            if (this.tasks && this.tasks.length > 0) {
+                // Navigate to kanban board but don't reset screen
+                if (!this.kanbanBoard) {
+                    this.kanbanBoard = new KanbanBoard(this.tasks);
                 }
+                this.updateStats();
             }
-        } catch (e) {
-            console.warn('Failed to load from localStorage:', e);
         }
+    } catch (e) {
+        console.warn('Failed to load from localStorage:', e);
     }
 }
 
