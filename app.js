@@ -116,17 +116,60 @@ class IntuivaApp {
         ];
     }
 
-    initializeApp() {
-        this.updateQuestionDisplay();
-        this.createNavigationDots();
-        this.updateProgressBar();
-        
-        // Check if onboarding is already complete
-        if (localStorage.getItem('intuiva_onboarding_complete')) {
-            this.showApp();
+   // In your initializeApp() method, add this:
+initializeApp() {
+    this.updateQuestionDisplay();
+    this.createNavigationDots();
+    this.updateProgressBar();
+    
+    // Check if onboarding is already complete
+    if (localStorage.getItem('intuiva_onboarding_complete')) {
+        this.showApp();
+    }
+    
+    // Make sure we have a backend URL
+    console.log('Backend URL will be:', this.getBackendUrl());
+}
+
+// Update the updateQuestionDisplay() method:
+updateQuestionDisplay() {
+    const currentQuestion = this.questions[this.currentQuestionIndex];
+    
+    document.getElementById('questionTitle').textContent = currentQuestion.title;
+    document.getElementById('questionDescription').textContent = currentQuestion.description;
+    
+    const answerInput = document.getElementById('answerInput');
+    answerInput.value = this.answers[currentQuestion.id] || '';
+    this.updateWordCount();
+    
+    this.updateNavigationDots();
+    this.updateProgressBar();
+    
+    // Update button states
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const generateBtn = document.getElementById('generateBoardBtn');
+    
+    prevBtn.style.display = this.currentQuestionIndex === 0 ? 'none' : 'flex';
+    
+    if (this.currentQuestionIndex === this.questions.length - 1) {
+        // Last question - show Generate Board button
+        nextBtn.classList.add('hidden');
+        if (generateBtn) {
+            generateBtn.classList.remove('hidden');
+        } else {
+            // Fallback if generate button doesn't exist
+            nextBtn.innerHTML = 'Generate Board <i class="fas fa-rocket"></i>';
+        }
+    } else {
+        // Not last question
+        nextBtn.classList.remove('hidden');
+        nextBtn.innerHTML = 'Next <i class="fas fa-arrow-right"></i>';
+        if (generateBtn) {
+            generateBtn.classList.add('hidden');
         }
     }
-
+}
     createNavigationDots() {
         const navDots = document.getElementById('navDots');
         navDots.innerHTML = '';
