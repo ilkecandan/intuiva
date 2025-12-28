@@ -21,6 +21,20 @@
                 <span class="tagline">Lean Project Management</span>
             </div>
             <div class="nav-actions">
+                <!-- Navigation Menu -->
+                <div class="nav-menu" id="navMenu">
+                    <button class="nav-btn" data-screen="onboarding" title="Home">
+                        <i class="fas fa-home"></i>
+                    </button>
+                    <button class="nav-btn" data-screen="questionnaire" title="Questionnaire">
+                        <i class="fas fa-question-circle"></i>
+                    </button>
+                    <button class="nav-btn" data-screen="kanbanBoard" title="Kanban Board">
+                        <i class="fas fa-columns"></i>
+                    </button>
+                </div>
+                
+                <!-- Theme and Help buttons -->
                 <button id="themeToggle" class="btn-icon" aria-label="Toggle theme">
                     <i class="fas fa-moon"></i>
                 </button>
@@ -166,6 +180,9 @@
                 </div>
                 
                 <div class="board-actions">
+                    <button id="backToQuestionsBtn" class="btn-outline">
+                        <i class="fas fa-arrow-left"></i> Back to Questions
+                    </button>
                     <button id="addTaskBtn" class="btn-primary">
                         <i class="fas fa-plus"></i> Add Task
                     </button>
