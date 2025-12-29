@@ -8,8 +8,8 @@ class IntuivaApp {
         this.currentScreen = 'onboarding';
         this.currentLanguage = this.detectLanguage() || 'en'; // 'en' or 'tr'
         
-        // Load translations
-        this.translations = TRANSLATIONS || {};
+        // Load translations from global TRANSLATIONS object (in translations.js)
+        this.translations = window.TRANSLATIONS || {};
         
         this.init();
     }
@@ -289,7 +289,20 @@ class IntuivaApp {
     }
 
     initQuestionnaire() {
-        this.questions = QUESTIONS;
+        // Get questions based on current language using the new data.js structure
+        if (window.getQuestions) {
+            this.questions = window.getQuestions(this.currentLanguage);
+        } else if (window.QUESTIONS && window.QUESTIONS[this.currentLanguage]) {
+            // Fallback to new structure
+            this.questions = window.QUESTIONS[this.currentLanguage];
+        } else if (Array.isArray(window.QUESTIONS)) {
+            // Fallback to old structure (English only)
+            this.questions = window.QUESTIONS;
+        } else {
+            // Emergency fallback
+            this.questions = [];
+        }
+        
         this.totalQuestions = this.questions.length;
         
         // Initialize answer input event
@@ -308,19 +321,6 @@ class IntuivaApp {
                 this.clearAnswer();
             }
         });
-        
-        // Update question translations if available
-        this.applyQuestionTranslations();
-    }
-    
-    applyQuestionTranslations() {
-        if (this.questions && this.currentLanguage === 'tr' && TRANSLATIONS?.tr?.questions) {
-            this.questions = this.questions.map((question, index) => ({
-                ...question,
-                text: TRANSLATIONS.tr.questions[index]?.text || question.text,
-                category: TRANSLATIONS.tr.questions[index]?.category || question.category
-            }));
-        }
     }
 
     initModals() {
@@ -357,7 +357,6 @@ class IntuivaApp {
         // Help modal
         this.helpModal = document.getElementById('helpModal');
     }
-    
     
     initDragAndDrop() {
         // This will be initialized by the KanbanBoard class
@@ -967,6 +966,14 @@ class IntuivaApp {
             this.currentLanguage = lang;
             localStorage.setItem('intuiva-language', lang);
             
+            // Reload questions in new language
+            if (window.getQuestions) {
+                this.questions = window.getQuestions(this.currentLanguage);
+            } else if (window.QUESTIONS && window.QUESTIONS[this.currentLanguage]) {
+                this.questions = window.QUESTIONS[this.currentLanguage];
+            }
+            this.totalQuestions = this.questions.length;
+            
             // Update UI immediately
             this.applyLanguage();
             
@@ -1058,86 +1065,6 @@ class IntuivaApp {
         }
     }
 }
-
-// TRANSLATIONS object - should be in a separate file translations.js
-const TRANSLATIONS = {
-    en: {
-        'app.title': 'Intuiva - AI Project Manager',
-        'button.start': 'Get Started',
-        'button.next': 'Next',
-        'button.prev': 'Previous',
-        'button.generateBoard': 'Generate Kanban Board',
-        'button.skip': 'Skip to Board',
-        'button.clearAll': 'Clear All Tasks',
-        'button.addTask': 'Add Task',
-        'button.regenerate': 'Regenerate Tasks',
-        'button.export': 'Export Board',
-        'button.save': 'Save',
-        'button.cancel': 'Cancel',
-        'button.skipQuestion': 'Skip Question',
-        'button.notAnswer': 'Not Applicable',
-        'button.clear': 'Clear Answer',
-        'question.number': 'Q{{number}}',
-        'question.progress': 'Question {{current}} of {{total}}',
-        'ai.contacting': 'Contacting AI...',
-        'ai.generating': 'Generating Tasks...',
-        'ai.regenerating': 'Regenerating...',
-        'ai.generatedSuccess': 'AI tasks generated successfully!',
-        'ai.generatedFallback': 'Generated tasks from your answers.',
-        'ai.regeneratedSuccess': 'AI tasks regenerated!',
-        'ai.regeneratedFallback': 'Regenerated from your answers.',
-        'toast.startedEmpty': 'Started with empty board',
-        'toast.allCleared': 'All tasks cleared',
-        'toast.taskAdded': 'Task added successfully!',
-        'toast.boardExported': 'Board exported successfully!',
-        'toast.themeSwitched': 'Switched to {{theme}} theme',
-        'toast.languageChanged': 'Language changed to {{language}}',
-        'error.taskTitleRequired': 'Task title is required',
-        'confirm.clearAll': 'Are you sure you want to clear all tasks? This cannot be undone.',
-        'theme.dark': 'dark',
-        'theme.light': 'light',
-        'language.en': 'English',
-        'language.tr': 'Turkish'
-    },
-    tr: {
-        'app.title': 'Intuiva - AI Proje Yöneticisi',
-        'button.start': 'Başla',
-        'button.next': 'İleri',
-        'button.prev': 'Geri',
-        'button.generateBoard': 'Kanban Board Oluştur',
-        'button.skip': 'Board\'a Geç',
-        'button.clearAll': 'Tüm Görevleri Temizle',
-        'button.addTask': 'Görev Ekle',
-        'button.regenerate': 'Görevleri Yeniden Oluştur',
-        'button.export': 'Board\'u Dışa Aktar',
-        'button.save': 'Kaydet',
-        'button.cancel': 'İptal',
-        'button.skipQuestion': 'Soruyu Atla',
-        'button.notAnswer': 'Uygulanamaz',
-        'button.clear': 'Yanıtı Temizle',
-        'question.number': 'S{{number}}',
-        'question.progress': 'Soru {{current}} / {{total}}',
-        'ai.contacting': 'AI\'ye bağlanılıyor...',
-        'ai.generating': 'Görevler oluşturuluyor...',
-        'ai.regenerating': 'Yeniden oluşturuluyor...',
-        'ai.generatedSuccess': 'AI görevleri başarıyla oluşturuldu!',
-        'ai.generatedFallback': 'Yanıtlarınızdan görevler oluşturuldu.',
-        'ai.regeneratedSuccess': 'AI görevleri yeniden oluşturuldu!',
-        'ai.regeneratedFallback': 'Yanıtlarınızdan yeniden oluşturuldu.',
-        'toast.startedEmpty': 'Boş board ile başlatıldı',
-        'toast.allCleared': 'Tüm görevler temizlendi',
-        'toast.taskAdded': 'Görev başarıyla eklendi!',
-        'toast.boardExported': 'Board başarıyla dışa aktarıldı!',
-        'toast.themeSwitched': '{{theme}} temaya geçildi',
-        'toast.languageChanged': 'Dil {{language}} olarak değiştirildi',
-        'error.taskTitleRequired': 'Görev başlığı gereklidir',
-        'confirm.clearAll': 'Tüm görevleri temizlemek istediğinizden emin misiniz? Bu işlem geri alınamaz.',
-        'theme.dark': 'koyu',
-        'theme.light': 'açık',
-        'language.en': 'İngilizce',
-        'language.tr': 'Türkçe'
-    }
-};
 
 // Initialize the app when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
