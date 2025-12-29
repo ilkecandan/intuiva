@@ -57,6 +57,8 @@ window.TRANSLATIONS = {
         'button.generateReport': 'Generate Report',
         'button.downloadPdf': 'Download PDF',
         'button.import': 'Import Project',
+        'button.saveContinue': 'Save & Continue Later',
+        'button.compact': 'Compact view',
         
         // Questions
         'question.number': 'Q{{number}}',
@@ -71,6 +73,8 @@ window.TRANSLATIONS = {
         'board.tasks': 'Tasks',
         'board.done': 'Done',
         'board.inProgress': 'In Progress',
+        'board.noTasks': 'No tasks yet',
+        'board.addOrGenerate': 'Add a task or generate with AI',
         
         // Columns
         'column.todo': 'To Do',
@@ -264,6 +268,8 @@ window.TRANSLATIONS = {
         'button.generateReport': 'Rapor Oluştur',
         'button.downloadPdf': 'PDF İndir',
         'button.import': 'Proje İçe Aktar',
+        'button.saveContinue': 'Kaydet ve Sonra Devam Et',
+        'button.compact': 'Kompakt görünüm',
         
         // Questions
         'question.number': 'S{{number}}',
@@ -278,6 +284,8 @@ window.TRANSLATIONS = {
         'board.tasks': 'Görev',
         'board.done': 'Tamamlandı',
         'board.inProgress': 'Devam Ediyor',
+        'board.noTasks': 'Henüz görev yok',
+        'board.addOrGenerate': 'Görev ekleyin veya AI ile oluşturun',
         
         // Columns
         'column.todo': 'Yapılacak',
