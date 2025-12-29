@@ -12,64 +12,51 @@ class IntuivaApp {
         this.savedProjects = [];
         this.autoSaveInterval = null;
         this.autoSaveEnabled = true;
-        this.questionDots = [];
+        this.isCompactView = false;
         
         this.init();
     }
     
     detectLanguage() {
-        try {
-            const savedLang = localStorage.getItem('intuiva-language');
-            if (savedLang && (savedLang === 'en' || savedLang === 'tr')) {
-                return savedLang;
-            }
-            
-            const browserLang = navigator.language || navigator.userLanguage || 'en';
-            return browserLang.startsWith('tr') ? 'tr' : 'en';
-        } catch (error) {
-            console.warn('Language detection failed, defaulting to English:', error);
-            return 'en';
-        }
+        const savedLang = localStorage.getItem('intuiva-language');
+        if (savedLang) return savedLang;
+        
+        const browserLang = navigator.language || navigator.userLanguage;
+        if (browserLang.startsWith('tr')) return 'tr';
+        
+        return 'en';
     }
     
     t(key, params = {}) {
-        try {
-            let translation = window.TRANSLATIONS?.[this.currentLanguage]?.[key] || 
-                            window.TRANSLATIONS?.['en']?.[key] || 
-                            key;
-            
-            Object.keys(params).forEach(param => {
-                const regex = new RegExp(`{{${param}}}`, 'g');
-                translation = translation.replace(regex, params[param]);
-            });
-            
-            return translation;
-        } catch (error) {
-            console.warn('Translation failed for key:', key, error);
-            return key;
-        }
+        // Fallback to English if translation not found
+        let translation = window.TRANSLATIONS?.[this.currentLanguage]?.[key] || 
+                        window.TRANSLATIONS?.['en']?.[key] || 
+                        key;
+        
+        Object.keys(params).forEach(param => {
+            translation = translation.replace(`{{${param}}}`, params[param]);
+        });
+        
+        return translation;
     }
 
     init() {
-        console.log('Intuiva App initializing...');
-        
+        // Initialize screens
         this.screens = {
             onboarding: document.getElementById('onboarding'),
             questionnaire: document.getElementById('questionnaire'),
             kanbanBoard: document.getElementById('kanbanBoard')
         };
         
-        this.initElements();
+        // Initialize all components
         this.initButtons();
         this.initNavigation();
         this.initQuestionnaire();
         this.initModals();
-        this.initDragAndDrop();
         this.initTheme();
-        this.initCharCounter();
         this.initProjectManagement();
         this.initKeyboardShortcuts();
-        this.initQuestionDots();
+        this.initCompactView();
         
         this.showScreen('onboarding');
         this.savedProjects = this.getSavedProjects();
@@ -87,33 +74,87 @@ class IntuivaApp {
         console.log('Intuiva App initialized successfully');
     }
 
-    initElements() {
-        // Cache frequently used DOM elements
-        this.elements = {
-            answerInput: document.getElementById('answerInput'),
-            charCount: document.getElementById('charCount'),
-            questionNumber: document.getElementById('questionNumber'),
-            questionTitle: document.getElementById('questionTitle'),
-            questionText: document.getElementById('questionText'),
-            categoryTitle: document.getElementById('categoryTitle'),
-            progressFill: document.getElementById('progressFill'),
-            progressText: document.getElementById('progressText'),
-            boardTitle: document.getElementById('boardTitle'),
-            totalTasks: document.getElementById('totalTasks'),
-            doneTasks: document.getElementById('doneTasks'),
-            wipTasks: document.getElementById('wipTasks'),
-            todoCount: document.getElementById('todoCount'),
-            inprogressCount: document.getElementById('inprogressCount'),
-            doneCount: document.getElementById('doneCount'),
-            lastSaved: document.getElementById('lastSaved'),
-            currentProjectName: document.getElementById('currentProjectName'),
-            projectNameDisplay: document.getElementById('projectNameDisplay'),
-            tipText: document.getElementById('tipText'),
-            reportContent: document.getElementById('reportContent'),
-            savedProjectsMenu: document.getElementById('savedProjectsMenu')
-        };
+    applyLanguage() {
+        // Wait for DOM to be ready
+        setTimeout(() => {
+            // Update all translatable elements
+            document.querySelectorAll('[data-i18n]').forEach(element => {
+                const key = element.getAttribute('data-i18n');
+                if (key) {
+                    try {
+                        const params = {};
+                        element.getAttributeNames().forEach(attr => {
+                            if (attr.startsWith('data-i18n-')) {
+                                const paramName = attr.replace('data-i18n-', '');
+                                params[paramName] = element.getAttribute(attr);
+                            }
+                        });
+                        const text = this.t(key, params);
+                        if (text) element.textContent = text;
+                    } catch (error) {
+                        console.warn('Translation failed for key:', key, error);
+                    }
+                }
+            });
+            
+            // Update placeholders
+            document.querySelectorAll('[data-i18n-placeholder]').forEach(element => {
+                const key = element.getAttribute('data-i18n-placeholder');
+                if (key) {
+                    element.placeholder = this.t(key);
+                }
+            });
+            
+            // Update titles
+            document.querySelectorAll('[data-i18n-title]').forEach(element => {
+                const key = element.getAttribute('data-i18n-title');
+                if (key) {
+                    element.title = this.t(key);
+                }
+            });
+            
+            // Update page title
+            document.title = this.t('app.title');
+            
+            // Update language selector
+            const langSelector = document.getElementById('languageSelector');
+            if (langSelector) {
+                langSelector.value = this.currentLanguage;
+            }
+            
+            // Update question if on questionnaire screen
+            if (this.currentScreen === 'questionnaire' && this.questions) {
+                this.loadQuestion(this.currentQuestionIndex);
+            }
+            
+            // Update kanban board if it exists
+            if (this.kanbanBoard) {
+                this.kanbanBoard.renderTasks();
+            }
+            
+            // Update stats
+            this.updateStats();
+        }, 0);
     }
-
+    
+    initProjectManagement() {
+        // Load the most recent project if exists
+        this.savedProjects = this.getSavedProjects();
+        if (this.savedProjects.length > 0) {
+            const mostRecent = this.savedProjects.sort((a, b) => 
+                new Date(b.updatedAt) - new Date(a.updatedAt)
+            )[0];
+            this.currentProject = mostRecent;
+            this.loadProject(mostRecent.id);
+        }
+        
+        // Start auto-save interval
+        this.startAutoSave();
+        
+        // Update saved time display
+        this.updateLastSavedTime();
+    }
+    
     initButtons() {
         // Start button
         const startBtn = document.getElementById('startBtn');
@@ -143,8 +184,7 @@ class IntuivaApp {
         // Saved projects dropdown
         const savedProjectsBtn = document.getElementById('savedProjectsBtn');
         if (savedProjectsBtn) {
-            savedProjectsBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
+            savedProjectsBtn.addEventListener('click', () => {
                 this.toggleSavedProjectsDropdown();
             });
         }
@@ -247,7 +287,7 @@ class IntuivaApp {
         const helpBtn = document.getElementById('helpBtn');
         if (helpBtn) {
             helpBtn.addEventListener('click', () => {
-                document.getElementById('helpModal').classList.add('active');
+                document.getElementById('helpModal')?.classList.add('active');
             });
         }
         
@@ -267,56 +307,21 @@ class IntuivaApp {
             });
         }
         
+        // Compact view toggle
+        const compactToggle = document.getElementById('compactToggle');
+        if (compactToggle) {
+            compactToggle.addEventListener('click', () => this.toggleCompactView());
+        }
+        
         // Jump to start/end buttons
         const jumpToStartBtn = document.getElementById('jumpToStartBtn');
         if (jumpToStartBtn) {
-            jumpToQuestionsBtn.addEventListener('click', () => {
-                this.loadQuestion(0);
-            });
+            jumpToStartBtn.addEventListener('click', () => this.jumpToQuestion(0));
         }
         
         const jumpToEndBtn = document.getElementById('jumpToEndBtn');
         if (jumpToEndBtn) {
-            jumpToEndBtn.addEventListener('click', () => {
-                this.loadQuestion(this.totalQuestions - 1);
-            });
-        }
-        
-        // Compact toggle
-        const compactToggle = document.getElementById('compactToggle');
-        if (compactToggle) {
-            compactToggle.addEventListener('click', () => {
-                document.querySelector('.app-container').classList.toggle('compact');
-                this.showToast(this.t('toast.compactMode'), 'info');
-            });
-        }
-        
-        // Report toggle
-        const reportToggle = document.getElementById('reportToggle');
-        if (reportToggle) {
-            reportToggle.addEventListener('click', () => {
-                const content = document.getElementById('reportContent');
-                const icon = document.getElementById('reportToggleIcon');
-                content.classList.toggle('collapsed');
-                icon.classList.toggle('fa-chevron-down');
-                icon.classList.toggle('fa-chevron-up');
-            });
-        }
-        
-        // Quick action buttons
-        const quickAddTask = document.getElementById('quickAddTask');
-        if (quickAddTask) {
-            quickAddTask.addEventListener('click', () => this.openTaskModal());
-        }
-        
-        const quickReport = document.getElementById('quickReport');
-        if (quickReport) {
-            quickReport.addEventListener('click', () => this.generateProjectReport());
-        }
-        
-        const quickSave = document.getElementById('quickSave');
-        if (quickSave) {
-            quickSave.addEventListener('click', () => this.saveProject());
+            jumpToEndBtn.addEventListener('click', () => this.jumpToQuestion(this.questions.length - 1));
         }
     }
 
@@ -332,32 +337,35 @@ class IntuivaApp {
     }
 
     navigateTo(screenName) {
-        try {
-            if (this.currentScreen === 'questionnaire' && this.elements.answerInput) {
-                this.saveAnswer(this.elements.answerInput.value);
+        // Save current answer before navigating away
+        if (this.currentScreen === 'questionnaire') {
+            const answerInput = document.getElementById('answerInput');
+            if (answerInput) {
+                this.saveAnswer(answerInput.value);
             }
-            
-            this.showScreen(screenName);
-            this.currentScreen = screenName;
-            this.updateActiveNav();
-            
-            if (screenName === 'questionnaire') {
-                this.loadQuestion(this.currentQuestionIndex);
-            }
-            
-            if (screenName === 'kanbanBoard') {
-                if (!this.kanbanBoard) {
-                    this.kanbanBoard = new KanbanBoard(this.tasks);
-                } else {
-                    this.kanbanBoard.tasks = this.tasks;
-                    this.kanbanBoard.renderTasks();
-                }
-                this.updateStats();
-                this.updateLastSavedTime();
-            }
-        } catch (error) {
-            console.error('Navigation error:', error);
-            this.showToast(this.t('error.navigation'), 'error');
+        }
+        
+        this.showScreen(screenName);
+        this.currentScreen = screenName;
+        this.updateActiveNav();
+        
+        if (screenName === 'questionnaire') {
+            this.loadQuestion(this.currentQuestionIndex);
+        }
+        
+        if (screenName === 'kanbanBoard') {
+            this.initializeKanbanBoard();
+            this.updateStats();
+            this.updateLastSavedTime();
+        }
+    }
+
+    initializeKanbanBoard() {
+        if (!this.kanbanBoard) {
+            this.kanbanBoard = new KanbanBoard(this.tasks);
+        } else {
+            this.kanbanBoard.tasks = this.tasks;
+            this.kanbanBoard.renderTasks();
         }
     }
 
@@ -372,85 +380,40 @@ class IntuivaApp {
     }
 
     initQuestionnaire() {
-        try {
-            if (window.getQuestions) {
-                this.questions = window.getQuestions(this.currentLanguage);
-            } else if (window.QUESTIONS && window.QUESTIONS[this.currentLanguage]) {
-                this.questions = window.QUESTIONS[this.currentLanguage];
-            } else if (Array.isArray(window.QUESTIONS)) {
-                this.questions = window.QUESTIONS;
-            } else {
-                console.error('No questions found');
-                this.questions = [];
-            }
-            
-            this.totalQuestions = this.questions.length;
-            
-            if (this.elements.answerInput) {
-                this.elements.answerInput.addEventListener('input', (e) => {
-                    this.saveAnswer(e.target.value);
-                    this.updateCharCounter();
-                    this.updateQuestionDot(this.currentQuestionIndex);
-                });
-                
-                this.elements.answerInput.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        this.nextQuestion();
-                    } else if (e.key === 'Escape') {
-                        this.clearAnswer();
-                    } else if (e.ctrlKey && e.key === 'Enter') {
-                        e.preventDefault();
-                        this.nextQuestion();
-                    }
-                });
-            }
-            
-            // Initialize question dots
-            this.initQuestionDots();
-        } catch (error) {
-            console.error('Questionnaire initialization error:', error);
+        // Load questions based on language
+        if (window.getQuestions) {
+            this.questions = window.getQuestions(this.currentLanguage);
+        } else if (window.QUESTIONS && window.QUESTIONS[this.currentLanguage]) {
+            this.questions = window.QUESTIONS[this.currentLanguage];
+        } else if (Array.isArray(window.QUESTIONS)) {
+            this.questions = window.QUESTIONS;
+        } else {
             this.questions = [];
-            this.totalQuestions = 0;
+            console.error('No questions found!');
         }
-    }
-
-    initQuestionDots() {
-        const dotsContainer = document.querySelector('.question-dots');
-        if (!dotsContainer || !this.questions || this.questions.length === 0) return;
         
-        dotsContainer.innerHTML = '';
-        this.questionDots = [];
+        this.totalQuestions = this.questions.length;
         
-        for (let i = 0; i < this.totalQuestions; i++) {
-            const dot = document.createElement('div');
-            dot.className = 'question-dot';
-            dot.dataset.index = i;
-            dot.title = `${this.t('question.number', { number: i + 1 })}: ${this.questions[i]?.category || ''}`;
-            
-            dot.addEventListener('click', () => {
-                this.loadQuestion(i);
+        const answerInput = document.getElementById('answerInput');
+        if (answerInput) {
+            answerInput.addEventListener('input', (e) => {
+                this.saveAnswer(e.target.value);
+                this.updateCharCounter();
             });
             
-            dotsContainer.appendChild(dot);
-            this.questionDots.push(dot);
+            // FIX: Enter key navigation - only navigate on Enter without Shift/Ctrl
+            answerInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey) {
+                    e.preventDefault();
+                    this.nextQuestion();
+                } else if (e.ctrlKey && e.key === 'Enter') {
+                    e.preventDefault();
+                    this.nextQuestion();
+                } else if (e.key === 'Escape') {
+                    this.clearAnswer();
+                }
+            });
         }
-        
-        this.updateQuestionDot(this.currentQuestionIndex);
-    }
-
-    updateQuestionDot(index) {
-        this.questionDots.forEach((dot, i) => {
-            dot.classList.remove('active', 'answered', 'skipped');
-            
-            if (i === index) {
-                dot.classList.add('active');
-            } else if (this.answers[i] === '[Skipped]') {
-                dot.classList.add('skipped');
-            } else if (this.answers[i] && this.answers[i] !== '[Not Applicable]') {
-                dot.classList.add('answered');
-            }
-        });
     }
 
     initModals() {
@@ -460,6 +423,7 @@ class IntuivaApp {
         this.saveProjectForm = document.getElementById('saveProjectForm');
         this.loadProjectModal = document.getElementById('loadProjectModal');
         
+        // Close modal buttons
         document.querySelectorAll('.close-modal').forEach(btn => {
             btn.addEventListener('click', () => {
                 document.querySelectorAll('.modal').forEach(modal => {
@@ -470,6 +434,7 @@ class IntuivaApp {
             });
         });
         
+        // Close modal on outside click
         document.querySelectorAll('.modal').forEach(modal => {
             modal.addEventListener('click', (e) => {
                 if (e.target === modal) {
@@ -480,6 +445,7 @@ class IntuivaApp {
             });
         });
         
+        // Task form submission
         if (this.taskForm) {
             this.taskForm.addEventListener('submit', (e) => {
                 e.preventDefault();
@@ -487,6 +453,7 @@ class IntuivaApp {
             });
         }
         
+        // Save project form submission
         if (this.saveProjectForm) {
             this.saveProjectForm.addEventListener('submit', (e) => {
                 e.preventDefault();
@@ -502,113 +469,78 @@ class IntuivaApp {
             });
         }
         
-        // Suggest name button
-        const suggestNameBtn = document.getElementById('suggestNameBtn');
-        if (suggestNameBtn) {
-            suggestNameBtn.addEventListener('click', () => {
-                this.suggestProjectName();
+        // Report toggle
+        const reportToggle = document.getElementById('reportToggle');
+        if (reportToggle) {
+            reportToggle.addEventListener('click', () => {
+                const reportContent = document.getElementById('reportContent');
+                const icon = document.getElementById('reportToggleIcon');
+                if (reportContent) {
+                    reportContent.classList.toggle('collapsed');
+                    icon.classList.toggle('fa-chevron-down');
+                    icon.classList.toggle('fa-chevron-up');
+                }
             });
         }
-        
-        // Use current date button
-        const useCurrentDateBtn = document.getElementById('useCurrentDateBtn');
-        if (useCurrentDateBtn) {
-            useCurrentDateBtn.addEventListener('click', () => {
-                this.useCurrentDateForProjectName();
-            });
-        }
-        
-        this.helpModal = document.getElementById('helpModal');
-    }
-    
-    initDragAndDrop() {
-        // This will be initialized by the KanbanBoard class
-    }
-    
-    initTheme() {
-        try {
-            const savedTheme = localStorage.getItem('intuiva-theme') || 'dark';
-            document.documentElement.setAttribute('data-theme', savedTheme);
-            
-            const themeIcon = document.querySelector('#themeToggle i');
-            if (themeIcon) {
-                themeIcon.className = savedTheme === 'dark' ? 'fas fa-moon' : 'fas fa-sun';
-            }
-        } catch (error) {
-            console.warn('Theme initialization failed:', error);
-        }
-    }
-    
-    initCharCounter() {
-        this.updateCharCounter();
-    }
-    
-    initProjectManagement() {
-        this.savedProjects = this.getSavedProjects();
-        if (this.savedProjects.length > 0) {
-            const mostRecent = this.savedProjects.sort((a, b) => 
-                new Date(b.updatedAt) - new Date(a.updatedAt)
-            )[0];
-            this.currentProject = mostRecent;
-            this.loadProject(mostRecent.id);
-        }
-        
-        this.startAutoSave();
-        this.updateLastSavedTime();
     }
     
     initKeyboardShortcuts() {
         document.addEventListener('keydown', (e) => {
-            // Only process shortcuts when not in input fields
+            // Don't trigger if user is typing in an input
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
                 return;
             }
             
-            // Ctrl+S to save
-            if (e.ctrlKey && e.key === 's') {
-                e.preventDefault();
-                this.saveProject();
-                this.showToast(this.t('toast.projectSaved'), 'success');
-            }
-            
-            // Ctrl+N for new project
-            if (e.ctrlKey && e.key === 'n') {
-                e.preventDefault();
-                this.createNewProject();
-            }
-            
-            // Ctrl+E to export
-            if (e.ctrlKey && e.key === 'e') {
-                e.preventDefault();
-                this.exportProject();
-            }
-            
-            // Ctrl+R to regenerate
-            if (e.ctrlKey && e.key === 'r') {
-                e.preventDefault();
-                this.regenerateTasks();
-            }
-            
-            // Ctrl+H for help
-            if (e.ctrlKey && e.key === 'h') {
-                e.preventDefault();
-                document.getElementById('helpModal').classList.add('active');
-            }
-            
-            // Escape to close modals
-            if (e.key === 'Escape') {
-                document.querySelectorAll('.modal.active').forEach(modal => {
-                    modal.classList.remove('active');
-                });
+            // Global shortcuts
+            switch(e.key) {
+                case 'n':
+                    if (e.ctrlKey) {
+                        e.preventDefault();
+                        this.createNewProject();
+                    }
+                    break;
+                case 's':
+                    if (e.ctrlKey) {
+                        e.preventDefault();
+                        this.saveProject();
+                    }
+                    break;
+                case 't':
+                    if (e.ctrlKey) {
+                        e.preventDefault();
+                        this.toggleTheme();
+                    }
+                    break;
+                case '?':
+                    e.preventDefault();
+                    document.getElementById('helpModal')?.classList.add('active');
+                    break;
             }
         });
     }
     
+    initCompactView() {
+        this.isCompactView = localStorage.getItem('intuiva-compact') === 'true';
+        this.applyCompactView();
+    }
+    
+    initTheme() {
+        const savedTheme = localStorage.getItem('intuiva-theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+        
+        const themeIcon = document.querySelector('#themeToggle i');
+        if (themeIcon) {
+            themeIcon.className = savedTheme === 'dark' ? 'fas fa-moon' : 'fas fa-sun';
+        }
+    }
+    
     showScreen(screenName) {
+        // Hide all screens
         Object.values(this.screens).forEach(screen => {
             if (screen) screen.classList.remove('active');
         });
         
+        // Show selected screen
         if (this.screens[screenName]) {
             this.screens[screenName].classList.add('active');
             this.currentScreen = screenName;
@@ -616,122 +548,141 @@ class IntuivaApp {
         
         this.updateActiveNav();
         
-        if (screenName === 'kanbanBoard' && !this.kanbanBoard) {
-            this.kanbanBoard = new KanbanBoard(this.tasks);
+        // Show/hide project name display
+        const projectNameDisplay = document.getElementById('projectNameDisplay');
+        if (projectNameDisplay) {
+            projectNameDisplay.style.display = screenName === 'kanbanBoard' ? 'block' : 'none';
         }
         
-        // Update project name display
-        if (this.currentProject && screenName !== 'onboarding') {
-            this.elements.projectNameDisplay.style.display = 'block';
-            this.elements.currentProjectName.textContent = this.currentProject.name || 'Untitled Project';
-        } else {
-            this.elements.projectNameDisplay.style.display = 'none';
+        // Focus on input if on questionnaire
+        if (screenName === 'questionnaire') {
+            setTimeout(() => {
+                const answerInput = document.getElementById('answerInput');
+                if (answerInput) answerInput.focus();
+            }, 100);
         }
     }
     
     loadQuestion(index) {
-        try {
-            if (index < 0 || index >= this.totalQuestions || !this.questions[index]) {
-                console.warn('Invalid question index:', index);
-                if (index >= this.totalQuestions - 1) {
-                    this.generateTasksFromAnswers();
+        // Validate index
+        if (index < 0) index = 0;
+        if (index >= this.totalQuestions) {
+            this.showKanbanBoard();
+            return;
+        }
+        
+        this.currentQuestionIndex = index;
+        const question = this.questions[index];
+        
+        if (!question) {
+            console.error('Question not found at index:', index);
+            return;
+        }
+        
+        // Update UI elements - safely check each element
+        const questionNumber = document.getElementById('questionNumber');
+        const questionTitle = document.getElementById('questionTitle');
+        const questionText = document.getElementById('questionText');
+        const categoryTitle = document.getElementById('categoryTitle');
+        const progressFill = document.getElementById('progressFill');
+        const progressText = document.getElementById('progressText');
+        const answerInput = document.getElementById('answerInput');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const nextBtnText = nextBtn?.querySelector('span');
+        
+        if (questionNumber) questionNumber.textContent = this.t('question.number', { number: index + 1 });
+        if (questionTitle) questionTitle.textContent = question.category || this.t('question.defaultTitle');
+        if (questionText) questionText.textContent = question.text || this.t('question.defaultText');
+        if (categoryTitle) categoryTitle.textContent = question.category || this.t('question.category');
+        
+        // Update progress
+        if (progressFill && progressText) {
+            const progress = ((index + 1) / this.totalQuestions) * 100;
+            progressFill.style.width = `${progress}%`;
+            progressText.textContent = this.t('question.progress', {
+                current: index + 1,
+                total: this.totalQuestions
+            });
+        }
+        
+        // Load saved answer
+        if (answerInput) {
+            answerInput.value = this.answers[index] || '';
+            answerInput.focus();
+        }
+        
+        // Update character counter
+        this.updateCharCounter();
+        
+        // Update button states
+        if (prevBtn) prevBtn.disabled = index === 0;
+        
+        // Update next button text for last question
+        if (nextBtnText) {
+            if (index === this.totalQuestions - 1) {
+                nextBtnText.textContent = this.t('button.generateBoard');
+            } else {
+                nextBtnText.textContent = this.t('button.next');
+            }
+        }
+        
+        // Update question dots
+        this.updateQuestionDots();
+    }
+    
+    updateQuestionDots() {
+        const dotsContainer = document.querySelector('.question-dots');
+        if (!dotsContainer) return;
+        
+        dotsContainer.innerHTML = '';
+        
+        for (let i = 0; i < this.totalQuestions; i++) {
+            const dot = document.createElement('div');
+            dot.className = 'question-dot';
+            
+            if (i === this.currentQuestionIndex) {
+                dot.classList.add('active');
+            } else if (this.answers[i]) {
+                if (this.answers[i] === '[Skipped]') {
+                    dot.classList.add('skipped');
+                } else if (this.answers[i] === '[Not Applicable]') {
+                    dot.classList.add('skipped');
+                } else {
+                    dot.classList.add('answered');
                 }
-                return;
             }
             
-            this.currentQuestionIndex = index;
-            const question = this.questions[index];
+            dot.title = `Question ${i + 1}`;
+            dot.addEventListener('click', () => {
+                this.loadQuestion(i);
+            });
             
-            // Update UI elements with null checks
-            if (this.elements.questionNumber) {
-                this.elements.questionNumber.textContent = this.t('question.number', { number: index + 1 });
-            }
-            
-            if (this.elements.questionTitle) {
-                this.elements.questionTitle.textContent = question.category || this.t('question.defaultTitle');
-            }
-            
-            if (this.elements.questionText) {
-                this.elements.questionText.textContent = question.text || this.t('question.defaultText');
-            }
-            
-            if (this.elements.categoryTitle) {
-                this.elements.categoryTitle.textContent = question.category || this.t('question.category');
-            }
-            
-            // Update progress
-            if (this.elements.progressFill && this.elements.progressText) {
-                const progress = ((index + 1) / this.totalQuestions) * 100;
-                this.elements.progressFill.style.width = `${progress}%`;
-                this.elements.progressText.textContent = this.t('question.progress', {
-                    current: index + 1,
-                    total: this.totalQuestions
-                });
-            }
-            
-            // Load saved answer
-            if (this.elements.answerInput) {
-                this.elements.answerInput.value = this.answers[index] || '';
-                this.elements.answerInput.focus();
-            }
-            
-            // Update character counter
-            this.updateCharCounter();
-            
-            // Update button states
-            const prevBtn = document.getElementById('prevBtn');
-            if (prevBtn) {
-                prevBtn.disabled = index === 0;
-            }
-            
-            // Update next button text for last question
-            const nextBtn = document.getElementById('nextBtn');
-            if (nextBtn) {
-                const nextBtnText = nextBtn.querySelector('span');
-                if (nextBtnText) {
-                    nextBtnText.textContent = index === this.totalQuestions - 1 ? 
-                        this.t('button.generateBoard') : this.t('button.next');
-                }
-            }
-            
-            // Update tip text based on question
-            if (this.elements.tipText) {
-                const tips = {
-                    'tr': '💡 İpucu: Mümkün olduğunca detaylı cevap verin. Bu, daha iyi görevler oluşturmamıza yardımcı olur.',
-                    'en': '💡 Tip: Provide as much detail as possible. This helps generate better tasks.'
-                };
-                this.elements.tipText.textContent = tips[this.currentLanguage] || tips['en'];
-            }
-            
-            // Update question dot
-            this.updateQuestionDot(index);
-            
-        } catch (error) {
-            console.error('Error loading question:', error);
-            this.showToast(this.t('error.loadQuestion'), 'error');
+            dotsContainer.appendChild(dot);
         }
     }
     
     prevQuestion() {
         if (this.currentQuestionIndex > 0) {
+            this.saveCurrentAnswer();
             this.loadQuestion(this.currentQuestionIndex - 1);
         }
     }
     
     nextQuestion() {
-        try {
-            if (this.elements.answerInput) {
-                this.saveAnswer(this.elements.answerInput.value);
-            }
-            
-            if (this.currentQuestionIndex < this.totalQuestions - 1) {
-                this.loadQuestion(this.currentQuestionIndex + 1);
-            } else {
-                this.generateTasksFromAnswers();
-            }
-        } catch (error) {
-            console.error('Error moving to next question:', error);
-            this.showToast(this.t('error.nextQuestion'), 'error');
+        this.saveCurrentAnswer();
+        
+        if (this.currentQuestionIndex < this.totalQuestions - 1) {
+            this.loadQuestion(this.currentQuestionIndex + 1);
+        } else {
+            this.generateTasksFromAnswers();
+        }
+    }
+    
+    saveCurrentAnswer() {
+        const answerInput = document.getElementById('answerInput');
+        if (answerInput) {
+            this.saveAnswer(answerInput.value);
         }
     }
     
@@ -746,11 +697,12 @@ class IntuivaApp {
     }
     
     clearAnswer() {
-        if (this.elements.answerInput) {
-            this.elements.answerInput.value = '';
+        const answerInput = document.getElementById('answerInput');
+        if (answerInput) {
+            answerInput.value = '';
             delete this.answers[this.currentQuestionIndex];
             this.updateCharCounter();
-            this.elements.answerInput.focus();
+            answerInput.focus();
         }
     }
     
@@ -768,54 +720,32 @@ class IntuivaApp {
     }
     
     updateCharCounter() {
-        try {
-            if (!this.elements.answerInput || !this.elements.charCount) return;
-            
-            const text = this.elements.answerInput.value;
-            const charCount = text.length;
-            const maxChars = 1000;
-            
-            this.elements.charCount.textContent = `${charCount}/${maxChars}`;
+        const text = document.getElementById('answerInput')?.value || '';
+        const charCount = text.length;
+        const maxChars = 1000;
+        
+        const charCountElement = document.getElementById('charCount');
+        if (charCountElement) {
+            charCountElement.textContent = `${charCount}/${maxChars}`;
             
             if (charCount > maxChars * 0.9) {
-                this.elements.charCount.style.color = 'var(--color-error)';
+                charCountElement.style.color = 'var(--color-error)';
             } else if (charCount > maxChars * 0.75) {
-                this.elements.charCount.style.color = 'var(--color-warning)';
+                charCountElement.style.color = 'var(--color-warning)';
             } else {
-                this.elements.charCount.style.color = 'var(--color-text-muted)';
+                charCountElement.style.color = 'var(--color-text-muted)';
             }
-        } catch (error) {
-            console.warn('Char counter update failed:', error);
         }
     }
     
     async generateTasksFromAnswers() {
         if (this.isGeneratingTasks) return;
+        
         this.isGeneratingTasks = true;
-
-        const nextBtn = document.getElementById('nextBtn');
-        const originalHtml = nextBtn ? nextBtn.innerHTML : '';
         
         // Show loading state
-        if (nextBtn) {
-            nextBtn.innerHTML = `<div class="loading"></div> ${this.t('ai.contacting')}`;
-            nextBtn.disabled = true;
-        }
-
-        // Show generating animation on kanban board
-        const kanbanContainer = document.querySelector('.kanban-container');
-        if (kanbanContainer) {
-            kanbanContainer.innerHTML = `
-                <div style="grid-column: 1 / -1; text-align: center; padding: 3rem;">
-                    <div class="loading" style="width: 40px; height: 40px; margin: 0 auto 1rem;"></div>
-                    <h3>${this.t('ai.generating')}</h3>
-                    <p style="color: var(--color-text-muted); margin-top: 0.5rem;">
-                        ${this.t('ai.analyzingAnswers')}
-                    </p>
-                </div>
-            `;
-        }
-
+        this.showLoadingScreen(this.t('ai.generatingTasks'));
+        
         try {
             const requestData = {
                 answers: this.answers,
@@ -830,9 +760,251 @@ class IntuivaApp {
                 body: JSON.stringify(requestData)
             });
 
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+            const result = await response.json();
+
+            if (result.success && result.tasks && result.tasks.length > 0) {
+                this.tasks = result.tasks.map(task => ({
+                    ...task,
+                    id: this.generateId()
+                }));
+                
+                // Store report if provided
+                if (result.report) {
+                    this.storeProjectReport(result.report);
+                }
+                
+                this.showToast(this.t('ai.generatedSuccess'), 'success');
+            } else {
+                throw new Error('AI returned no tasks');
             }
+
+        } catch (error) {
+            console.warn('AI generation failed, using fallback:', error);
+            this.tasks = this.generateTasksBasedOnAnswers();
+            this.showToast(this.t('ai.generatedFallback'), 'info');
+        } finally {
+            this.hideLoadingScreen();
+            this.saveProject();
+            this.navigateTo('kanbanBoard');
+            this.updateStats();
+            this.isGeneratingTasks = false;
+        }
+    }
+    
+    showLoadingScreen(message) {
+        const loadingScreen = document.createElement('div');
+        loadingScreen.id = 'loadingScreen';
+        loadingScreen.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--color-bg);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            gap: 1rem;
+        `;
+        
+        loadingScreen.innerHTML = `
+            <div class="loading" style="width: 40px; height: 40px; border-width: 3px;"></div>
+            <p style="color: var(--color-text); font-size: 0.875rem;">${message}</p>
+        `;
+        
+        document.body.appendChild(loadingScreen);
+    }
+    
+    hideLoadingScreen() {
+        const loadingScreen = document.getElementById('loadingScreen');
+        if (loadingScreen) {
+            loadingScreen.remove();
+        }
+    }
+    
+    generateTasksBasedOnAnswers() {
+        const hasValidAnswers = Object.values(this.answers).some(answer => 
+            answer && answer !== '[Skipped]' && answer !== '[Not Applicable]'
+        );
+        
+        if (!hasValidAnswers) {
+            return this.generateDefaultTasks();
+        }
+        
+        const tasks = [];
+        const isTurkish = this.currentLanguage === 'tr';
+        
+        Object.entries(this.answers).forEach(([index, answer]) => {
+            if (answer === '[Skipped]' || answer === '[Not Applicable]') return;
+            
+            const question = this.questions[parseInt(index)];
+            const category = question?.category || '';
+            
+            // Generate tasks based on answer length
+            if (answer.length > 20) {
+                tasks.push({
+                    id: this.generateId(),
+                    title: isTurkish ? 
+                        `"${answer.substring(0, 30)}..." için eylem planı oluştur` :
+                        `Create action plan for "${answer.substring(0, 30)}..."`,
+                    description: isTurkish ?
+                        `Bu yanıttan çıkarımlar: ${answer.substring(0, 100)}` :
+                        `Insights from this answer: ${answer.substring(0, 100)}`,
+                    status: 'todo',
+                    priority: 'medium',
+                    tags: isTurkish ? ['analiz', 'planlama'] : ['analysis', 'planning']
+                });
+            }
+        });
+        
+        // Add default tasks if not enough
+        if (tasks.length < 3) {
+            tasks.push(...this.generateDefaultTasks());
+        }
+        
+        return tasks.slice(0, 8); // Limit to 8 tasks
+    }
+    
+    generateDefaultTasks() {
+        const isTurkish = this.currentLanguage === 'tr';
+        
+        return [
+            {
+                id: this.generateId(),
+                title: isTurkish ? 'Proje hedeflerini tanımla' : 'Define project goals',
+                description: isTurkish ?
+                    'Projenin neyi başarmasını istediğini açıkça belirt' :
+                    'Clearly state what you want the project to achieve',
+                status: "todo",
+                priority: "high",
+                tags: isTurkish ? ['planlama', 'hedefler'] : ['planning', 'goals']
+            },
+            {
+                id: this.generateId(),
+                title: isTurkish ? 'Ana adımları belirle' : 'Identify key steps',
+                description: isTurkish ?
+                    'Başarıya götürecek temel adımları listeleyin' :
+                    'List the fundamental steps that will lead to success',
+                status: "todo",
+                priority: "medium",
+                tags: isTurkish ? ['adımlar', 'yol haritası'] : ['steps', 'roadmap']
+            },
+            {
+                id: this.generateId(),
+                title: isTurkish ? 'Kaynakları planla' : 'Plan resources',
+                description: isTurkish ?
+                    'İhtiyaç duyulan zaman, bütçe ve insan kaynaklarını düşünün' :
+                    'Consider required time, budget, and human resources',
+                status: "todo",
+                priority: "medium",
+                tags: isTurkish ? ['kaynaklar', 'planlama'] : ['resources', 'planning']
+            }
+        ];
+    }
+    
+    showKanbanBoard() {
+        this.navigateTo('kanbanBoard');
+    }
+    
+    updateStats() {
+        if (!this.kanbanBoard) {
+            this.initializeKanbanBoard();
+        }
+        
+        const stats = this.kanbanBoard.getStats();
+        
+        const totalTasks = document.getElementById('totalTasks');
+        const doneTasks = document.getElementById('doneTasks');
+        const wipTasks = document.getElementById('wipTasks');
+        const todoCount = document.getElementById('todoCount');
+        const inprogressCount = document.getElementById('inprogressCount');
+        const doneCount = document.getElementById('doneCount');
+        
+        if (totalTasks) totalTasks.textContent = stats.total;
+        if (doneTasks) doneTasks.textContent = stats.done;
+        if (wipTasks) wipTasks.textContent = stats.inProgress;
+        if (todoCount) todoCount.textContent = stats.todo;
+        if (inprogressCount) inprogressCount.textContent = stats.inProgress;
+        if (doneCount) doneCount.textContent = stats.done;
+    }
+    
+    openTaskModal(status = 'todo') {
+        const modal = document.getElementById('taskModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const taskStatus = document.getElementById('taskStatus');
+        const taskTitle = document.getElementById('taskTitle');
+        
+        if (modal && modalTitle) {
+            modalTitle.textContent = this.t('modal.addTask');
+            if (taskStatus) taskStatus.value = status;
+            modal.classList.add('active');
+            if (taskTitle) setTimeout(() => taskTitle.focus(), 100);
+        }
+    }
+    
+    saveTask() {
+        const title = document.getElementById('taskTitle')?.value?.trim();
+        const description = document.getElementById('taskDescription')?.value?.trim();
+        const priority = document.getElementById('taskPriority')?.value;
+        const status = document.getElementById('taskStatus')?.value;
+        const tags = document.getElementById('taskTags')?.value
+            ?.split(',')
+            .map(tag => tag.trim())
+            .filter(tag => tag) || [];
+        
+        if (!title) {
+            this.showToast(this.t('error.taskTitleRequired'), 'error');
+            return;
+        }
+        
+        const task = {
+            id: this.generateId(),
+            title,
+            description,
+            priority: priority || 'medium',
+            status: status || 'todo',
+            tags,
+            createdAt: new Date().toISOString(),
+            language: this.currentLanguage
+        };
+        
+        if (this.kanbanBoard) {
+            this.kanbanBoard.addTask(task);
+            this.tasks.push(task);
+            this.updateStats();
+        }
+        
+        const modal = document.getElementById('taskModal');
+        if (modal) modal.classList.remove('active');
+        
+        const taskForm = document.getElementById('taskForm');
+        if (taskForm) taskForm.reset();
+        
+        this.showToast(this.t('toast.taskAdded'), 'success');
+        this.saveProject();
+    }
+    
+    async regenerateTasks() {
+        if (this.isGeneratingTasks) return;
+        
+        this.isGeneratingTasks = true;
+        this.showLoadingScreen(this.t('ai.regeneratingTasks'));
+        
+        try {
+            const requestData = {
+                answers: this.answers,
+                questions: this.questions,
+                language: this.currentLanguage,
+                generateReport: true
+            };
+
+            const response = await fetch('https://intuivabackend-production.up.railway.app/api/generate-tasks', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(requestData)
+            });
 
             const result = await response.json();
 
@@ -854,46 +1026,465 @@ class IntuivaApp {
                     this.storeProjectReport(result.report);
                 }
                 
-                this.showToast(this.t('ai.generatedSuccess'), 'success');
+                this.showToast(this.t('ai.regeneratedSuccess'), 'success');
             } else {
                 throw new Error('AI returned no tasks');
             }
-
+            
         } catch (error) {
-            console.warn('AI generation failed, using fallback:', error);
-            this.tasks = this.generateTasksBasedOnAnswers();
-            
-            if (this.kanbanBoard) {
-                this.kanbanBoard.clearTasks();
-                this.tasks.forEach(task => {
-                    this.kanbanBoard.addTask(task);
-                });
-            }
-            
-            this.showToast(this.t('ai.generatedFallback'), 'info');
+            console.warn('AI regeneration failed:', error);
+            this.showToast(this.t('ai.regeneratedFallback'), 'info');
         } finally {
-            this.saveProject();
-            this.navigateTo('kanbanBoard');
+            this.hideLoadingScreen();
             this.updateStats();
-            
-            if (nextBtn) {
-                nextBtn.innerHTML = originalHtml;
-                nextBtn.disabled = false;
-            }
+            this.saveProject();
             this.isGeneratingTasks = false;
         }
     }
     
-    // ... (rest of the methods remain similar but with improved error handling)
-    // For brevity, I'll include the critical parts and you can see the pattern
+    createNewProject() {
+        // Reset everything
+        this.currentQuestionIndex = 0;
+        this.answers = {};
+        this.tasks = [];
+        this.currentProject = {
+            id: this.generateId(),
+            name: this.t('project.defaultName', { date: new Date().toLocaleDateString() }),
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            tasks: [],
+            answers: {},
+            language: this.currentLanguage
+        };
+        
+        // Update board title
+        const boardTitle = document.getElementById('boardTitle');
+        if (boardTitle) {
+            boardTitle.textContent = this.currentProject.name;
+        }
+        
+        // Navigate to questionnaire
+        this.navigateTo('questionnaire');
+        this.loadQuestion(0);
+        
+        this.showToast(this.t('toast.newProjectCreated'), 'success');
+    }
+    
+    saveProject() {
+        if (!this.currentProject) {
+            this.currentProject = {
+                id: this.generateId(),
+                name: this.t('project.defaultName', { date: new Date().toLocaleDateString() }),
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                tasks: this.tasks,
+                answers: this.answers,
+                language: this.currentLanguage
+            };
+        }
+        
+        this.currentProject.tasks = this.tasks;
+        this.currentProject.answers = this.answers;
+        this.currentProject.updatedAt = new Date().toISOString();
+        this.currentProject.language = this.currentLanguage;
+        
+        // Update board title if set
+        const boardTitle = document.getElementById('boardTitle');
+        if (boardTitle && boardTitle.textContent !== 'Project Board') {
+            this.currentProject.name = boardTitle.textContent;
+        }
+        
+        this.saveProjectToStorage(this.currentProject);
+        this.updateLastSavedTime();
+        this.updateSavedProjectsDropdown();
+        
+        return this.currentProject;
+    }
+    
+    saveProjectAs() {
+        const name = document.getElementById('projectName')?.value?.trim();
+        const description = document.getElementById('projectDescription')?.value?.trim();
+        const tags = document.getElementById('projectTags')?.value
+            ?.split(',')
+            .map(tag => tag.trim())
+            .filter(tag => tag) || [];
+        
+        if (!name) {
+            this.showToast(this.t('error.projectNameRequired'), 'error');
+            return;
+        }
+        
+        if (!this.currentProject) {
+            this.currentProject = {
+                id: this.generateId(),
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                tasks: this.tasks,
+                answers: this.answers,
+                language: this.currentLanguage
+            };
+        }
+        
+        this.currentProject.name = name;
+        this.currentProject.description = description;
+        this.currentProject.tags = tags;
+        this.currentProject.tasks = this.tasks;
+        this.currentProject.answers = this.answers;
+        this.currentProject.updatedAt = new Date().toISOString();
+        this.currentProject.language = this.currentLanguage;
+        
+        // Update auto-save setting
+        const autoSave = document.getElementById('autoSave');
+        if (autoSave) {
+            this.autoSaveEnabled = autoSave.checked;
+            if (this.autoSaveEnabled) {
+                this.startAutoSave();
+            } else {
+                this.stopAutoSave();
+            }
+        }
+        
+        this.saveProjectToStorage(this.currentProject);
+        this.updateSavedProjectsDropdown();
+        
+        const saveProjectModal = document.getElementById('saveProjectModal');
+        if (saveProjectModal) saveProjectModal.classList.remove('active');
+        
+        // Update UI
+        const boardTitle = document.getElementById('boardTitle');
+        if (boardTitle) boardTitle.textContent = name;
+        
+        const currentProjectName = document.getElementById('currentProjectName');
+        if (currentProjectName) currentProjectName.textContent = name;
+        
+        this.showToast(this.t('toast.projectSaved'), 'success');
+    }
+    
+    saveProjectToStorage(project) {
+        const projects = this.getSavedProjects();
+        const existingIndex = projects.findIndex(p => p.id === project.id);
+        
+        if (existingIndex !== -1) {
+            projects[existingIndex] = project;
+        } else {
+            projects.push(project);
+        }
+        
+        // Keep only last 20 projects
+        const recentProjects = projects
+            .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
+            .slice(0, 20);
+        
+        try {
+            localStorage.setItem('intuiva-projects', JSON.stringify(recentProjects));
+            localStorage.setItem('intuiva-last-project', project.id);
+        } catch (e) {
+            console.warn('Failed to save project to localStorage:', e);
+        }
+    }
+    
+    getSavedProjects() {
+        try {
+            const projects = JSON.parse(localStorage.getItem('intuiva-projects') || '[]');
+            return Array.isArray(projects) ? projects : [];
+        } catch (e) {
+            console.warn('Failed to load projects from localStorage:', e);
+            return [];
+        }
+    }
+    
+    loadProject(projectId) {
+        const projects = this.getSavedProjects();
+        const project = projects.find(p => p.id === projectId);
+        
+        if (!project) {
+            this.showToast(this.t('error.projectNotFound'), 'error');
+            return;
+        }
+        
+        this.currentProject = project;
+        this.tasks = project.tasks || [];
+        this.answers = project.answers || {};
+        this.currentLanguage = project.language || this.currentLanguage;
+        
+        // Update language selector
+        const langSelector = document.getElementById('languageSelector');
+        if (langSelector) {
+            langSelector.value = this.currentLanguage;
+        }
+        
+        // Apply language
+        this.applyLanguage();
+        
+        // Update UI
+        const boardTitle = document.getElementById('boardTitle');
+        if (boardTitle) boardTitle.textContent = project.name || 'Project Board';
+        
+        const currentProjectName = document.getElementById('currentProjectName');
+        if (currentProjectName) currentProjectName.textContent = project.name || 'Untitled Project';
+        
+        // Load kanban board
+        this.initializeKanbanBoard();
+        this.updateStats();
+        this.navigateTo('kanbanBoard');
+        
+        this.showToast(this.t('toast.projectLoaded', { name: project.name }), 'success');
+    }
+    
+    showSaveProjectModal() {
+        if (this.currentProject) {
+            const projectName = document.getElementById('projectName');
+            const projectDescription = document.getElementById('projectDescription');
+            const projectTags = document.getElementById('projectTags');
+            const autoSave = document.getElementById('autoSave');
+            
+            if (projectName) projectName.value = this.currentProject.name || '';
+            if (projectDescription) projectDescription.value = this.currentProject.description || '';
+            if (projectTags) projectTags.value = (this.currentProject.tags || []).join(', ');
+            if (autoSave) autoSave.checked = this.autoSaveEnabled;
+        }
+        
+        const modal = document.getElementById('saveProjectModal');
+        if (modal) modal.classList.add('active');
+    }
+    
+    showLoadProjectModal() {
+        const list = document.getElementById('savedProjectsList');
+        const noProjects = document.getElementById('noProjectsMessage');
+        const projects = this.getSavedProjects();
+        
+        if (list && noProjects) {
+            if (projects.length === 0) {
+                list.style.display = 'none';
+                noProjects.style.display = 'block';
+            } else {
+                list.style.display = 'block';
+                noProjects.style.display = 'none';
+                
+                list.innerHTML = projects
+                    .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
+                    .map(project => `
+                        <div class="project-item" data-project-id="${project.id}">
+                            <div class="project-info">
+                                <div class="project-name">${this.escapeHtml(project.name || 'Unnamed Project')}</div>
+                                <div class="project-meta">
+                                    <span>${project.tasks?.length || 0} tasks</span>
+                                    <span>•</span>
+                                    <span>${this.formatDate(project.updatedAt)}</span>
+                                    ${project.description ? `<span>•</span><span>${this.escapeHtml(project.description.substring(0, 30))}...</span>` : ''}
+                                </div>
+                            </div>
+                            <button class="btn-icon delete-project" data-project-id="${project.id}" title="Delete project">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    `).join('');
+                
+                // Add event listeners
+                list.querySelectorAll('.project-item').forEach(item => {
+                    item.addEventListener('click', (e) => {
+                        if (!e.target.closest('.delete-project')) {
+                            const projectId = e.currentTarget.dataset.projectId;
+                            this.loadProject(projectId);
+                            const modal = document.getElementById('loadProjectModal');
+                            if (modal) modal.classList.remove('active');
+                        }
+                    });
+                });
+                
+                // Add delete button listeners
+                list.querySelectorAll('.delete-project').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const projectId = e.currentTarget.dataset.projectId;
+                        this.deleteProject(projectId);
+                    });
+                });
+            }
+        }
+        
+        const modal = document.getElementById('loadProjectModal');
+        if (modal) modal.classList.add('active');
+    }
+    
+    deleteProject(projectId) {
+        if (confirm(this.t('confirm.deleteProject'))) {
+            const projects = this.getSavedProjects();
+            const updatedProjects = projects.filter(p => p.id !== projectId);
+            
+            try {
+                localStorage.setItem('intuiva-projects', JSON.stringify(updatedProjects));
+                
+                // If deleting current project, clear it
+                if (this.currentProject && this.currentProject.id === projectId) {
+                    this.currentProject = null;
+                    this.tasks = [];
+                    this.answers = {};
+                    if (this.kanbanBoard) {
+                        this.kanbanBoard.clearTasks();
+                    }
+                    this.updateStats();
+                    this.navigateTo('onboarding');
+                }
+                
+                this.updateSavedProjectsDropdown();
+                this.showLoadProjectModal(); // Refresh the list
+                this.showToast(this.t('toast.projectDeleted'), 'success');
+            } catch (e) {
+                console.warn('Failed to delete project:', e);
+                this.showToast(this.t('error.deleteFailed'), 'error');
+            }
+        }
+    }
+    
+    importProject() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json';
+        
+        input.onchange = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                try {
+                    const data = JSON.parse(event.target.result);
+                    
+                    // Validate project data
+                    if (!data.tasks || !Array.isArray(data.tasks)) {
+                        throw new Error('Invalid project file format');
+                    }
+                    
+                    // Create new project from import
+                    const project = {
+                        id: this.generateId(),
+                        name: data.name || `Imported ${new Date().toLocaleDateString()}`,
+                        description: data.description || '',
+                        tags: data.tags || [],
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString(),
+                        tasks: data.tasks,
+                        answers: data.answers || {},
+                        language: data.language || this.currentLanguage
+                    };
+                    
+                    // Save the imported project
+                    this.saveProjectToStorage(project);
+                    this.loadProject(project.id);
+                    
+                    const modal = document.getElementById('loadProjectModal');
+                    if (modal) modal.classList.remove('active');
+                    
+                    this.showToast(this.t('toast.projectImported'), 'success');
+                } catch (error) {
+                    console.error('Import failed:', error);
+                    this.showToast(this.t('error.importFailed'), 'error');
+                }
+            };
+            reader.readAsText(file);
+        };
+        
+        input.click();
+    }
+    
+    exportProject() {
+        const project = this.saveProject();
+        const data = {
+            ...project,
+            exportedAt: new Date().toISOString(),
+            exportedFrom: 'Intuiva Project Manager'
+        };
+        
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `intuiva-project-${(project.name || 'project').replace(/\s+/g, '-').toLowerCase()}-${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        this.showToast(this.t('toast.projectExported'), 'success');
+    }
+    
+    toggleTheme() {
+        const currentTheme = document.documentElement.getAttribute('data-theme');
+        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        
+        document.documentElement.setAttribute('data-theme', newTheme);
+        localStorage.setItem('intuiva-theme', newTheme);
+        
+        const themeIcon = document.querySelector('#themeToggle i');
+        if (themeIcon) {
+            themeIcon.className = newTheme === 'dark' ? 'fas fa-moon' : 'fas fa-sun';
+        }
+        
+        this.showToast(this.t('toast.themeSwitched', { theme: this.t(`theme.${newTheme}`) }), 'info');
+    }
+    
+    toggleCompactView() {
+        this.isCompactView = !this.isCompactView;
+        localStorage.setItem('intuiva-compact', this.isCompactView);
+        this.applyCompactView();
+        
+        const icon = document.querySelector('#compactToggle i');
+        if (icon) {
+            icon.className = this.isCompactView ? 'fas fa-expand-alt' : 'fas fa-compress-alt';
+        }
+        
+        this.showToast(this.t('toast.compactMode', { mode: this.isCompactView ? this.t('on') : this.t('off') }), 'info');
+    }
+    
+    applyCompactView() {
+        const appContainer = document.querySelector('.app-container');
+        if (appContainer) {
+            if (this.isCompactView) {
+                appContainer.classList.add('compact');
+            } else {
+                appContainer.classList.remove('compact');
+            }
+        }
+    }
+    
+    setLanguage(lang) {
+        if (lang !== this.currentLanguage && (lang === 'en' || lang === 'tr')) {
+            this.currentLanguage = lang;
+            localStorage.setItem('intuiva-language', lang);
+            
+            // Reload questions in new language
+            if (window.getQuestions) {
+                this.questions = window.getQuestions(this.currentLanguage);
+            } else if (window.QUESTIONS && window.QUESTIONS[this.currentLanguage]) {
+                this.questions = window.QUESTIONS[this.currentLanguage];
+            } else if (Array.isArray(window.QUESTIONS)) {
+                this.questions = window.QUESTIONS;
+            }
+            this.totalQuestions = this.questions.length;
+            
+            // Update UI
+            this.applyLanguage();
+            
+            // Reload current screen
+            if (this.currentScreen === 'questionnaire') {
+                this.loadQuestion(this.currentQuestionIndex);
+            }
+            
+            this.showToast(this.t('toast.languageChanged', { language: this.t(`language.${lang}`) }), 'info');
+        }
+    }
+    
+    jumpToQuestion(index) {
+        this.saveCurrentAnswer();
+        this.loadQuestion(index);
+    }
     
     showToast(message, type = 'info') {
-        try {
-            const toast = document.getElementById('toast');
-            const toastMessage = document.getElementById('toastMessage');
-            
-            if (!toast || !toastMessage) return;
-            
+        const toast = document.getElementById('toast');
+        const toastMessage = document.getElementById('toastMessage');
+        
+        if (toast && toastMessage) {
             toastMessage.textContent = message;
             
             const colors = {
@@ -909,141 +1500,371 @@ class IntuivaApp {
             setTimeout(() => {
                 toast.classList.remove('active');
             }, 3000);
-        } catch (error) {
-            console.warn('Toast failed:', error);
         }
     }
     
-    applyLanguage() {
-        try {
-            // Update all translatable elements
-            document.querySelectorAll('[data-i18n]').forEach(element => {
-                const key = element.getAttribute('data-i18n');
-                if (key) {
-                    const params = {};
-                    element.getAttributeNames().forEach(attr => {
-                        if (attr.startsWith('data-i18n-')) {
-                            const paramName = attr.replace('data-i18n-', '');
-                            params[paramName] = element.getAttribute(attr);
-                        }
-                    });
-                    element.textContent = this.t(key, params);
-                }
-            });
-            
-            // Update placeholders
-            document.querySelectorAll('[data-i18n-placeholder]').forEach(element => {
-                const key = element.getAttribute('data-i18n-placeholder');
-                if (key) {
-                    element.placeholder = this.t(key);
-                }
-            });
-            
-            // Update titles
-            document.querySelectorAll('[data-i18n-title]').forEach(element => {
-                const key = element.getAttribute('data-i18n-title');
-                if (key) {
-                    element.title = this.t(key);
-                }
-            });
-            
-            // Update page title
-            document.title = this.t('app.title');
-            
-            // Update language selector
-            const langSelector = document.getElementById('languageSelector');
-            if (langSelector) {
-                langSelector.value = this.currentLanguage;
-            }
-            
-            // Update question if on questionnaire screen
-            if (this.currentScreen === 'questionnaire' && this.questions) {
-                this.loadQuestion(this.currentQuestionIndex);
-            }
-            
-            // Update kanban board if it exists
-            if (this.kanbanBoard) {
-                this.kanbanBoard.renderTasks();
-            }
-            
-            // Update stats
-            this.updateStats();
-        } catch (error) {
-            console.error('Language application failed:', error);
-        }
+    generateId() {
+        return Date.now().toString(36) + Math.random().toString(36).substr(2);
     }
     
-    setLanguage(lang) {
-        try {
-            if (lang !== this.currentLanguage && (lang === 'en' || lang === 'tr')) {
-                this.currentLanguage = lang;
-                localStorage.setItem('intuiva-language', lang);
-                
-                // Reload questions in new language
-                if (window.getQuestions) {
-                    this.questions = window.getQuestions(this.currentLanguage);
-                } else if (window.QUESTIONS && window.QUESTIONS[this.currentLanguage]) {
-                    this.questions = window.QUESTIONS[this.currentLanguage];
-                }
-                this.totalQuestions = this.questions.length;
-                
-                // Update UI
-                this.applyLanguage();
-                
-                // Reload current screen
-                if (this.currentScreen === 'questionnaire') {
-                    this.loadQuestion(this.currentQuestionIndex);
-                }
-                
-                this.showToast(this.t('toast.languageChanged', { language: this.t(`language.${lang}`) }), 'info');
-            }
-        } catch (error) {
-            console.error('Language change failed:', error);
-            this.showToast(this.t('error.languageChange'), 'error');
-        }
-    }
-    
-    // Helper methods for project management
-    suggestProjectName() {
-        const names = {
-            'en': [
-                'Strategic Initiative',
-                'Project Launchpad',
-                'Growth Accelerator',
-                'Innovation Hub',
-                'Transformation Project'
-            ],
-            'tr': [
-                'Stratejik Girişim',
-                'Proje Platformu',
-                'Büyüme Hızlandırıcı',
-                'İnovasyon Merkezi',
-                'Dönüşüm Projesi'
-            ]
-        };
+    startAutoSave() {
+        this.stopAutoSave();
         
-        const langNames = names[this.currentLanguage] || names['en'];
-        const randomName = langNames[Math.floor(Math.random() * langNames.length)];
-        const projectNameInput = document.getElementById('projectName');
-        if (projectNameInput) {
-            projectNameInput.value = randomName;
+        this.autoSaveInterval = setInterval(() => {
+            if (this.autoSaveEnabled && (this.tasks.length > 0 || Object.keys(this.answers).length > 0)) {
+                this.saveProject();
+            }
+        }, 30000);
+    }
+    
+    stopAutoSave() {
+        if (this.autoSaveInterval) {
+            clearInterval(this.autoSaveInterval);
+            this.autoSaveInterval = null;
         }
     }
     
-    useCurrentDateForProjectName() {
+    updateLastSavedTime() {
+        if (this.currentProject) {
+            const element = document.getElementById('lastSaved');
+            if (element) {
+                element.textContent = this.formatDate(this.currentProject.updatedAt);
+            }
+        }
+    }
+    
+    formatDate(dateString) {
+        const date = new Date(dateString);
         const now = new Date();
-        const dateStr = now.toLocaleDateString(this.currentLanguage === 'tr' ? 'tr-TR' : 'en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric'
-        });
-        const projectNameInput = document.getElementById('projectName');
-        if (projectNameInput) {
-            projectNameInput.value = `${this.t('project.defaultName')} - ${dateStr}`;
+        const diffMs = now - date;
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMs / 3600000);
+        const diffDays = Math.floor(diffMs / 86400000);
+        
+        if (diffMins < 1) return this.t('time.justNow');
+        if (diffMins < 60) return this.t('time.minutesAgo', { minutes: diffMins });
+        if (diffHours < 24) return this.t('time.hoursAgo', { hours: diffHours });
+        if (diffDays < 7) return this.t('time.daysAgo', { days: diffDays });
+        
+        return date.toLocaleDateString();
+    }
+    
+    toggleSavedProjectsDropdown() {
+        const menu = document.getElementById('savedProjectsMenu');
+        if (menu) {
+            menu.classList.toggle('active');
+            
+            if (menu.classList.contains('active')) {
+                const closeHandler = (e) => {
+                    if (!menu.contains(e.target) && e.target.id !== 'savedProjectsBtn') {
+                        menu.classList.remove('active');
+                        document.removeEventListener('click', closeHandler);
+                    }
+                };
+                setTimeout(() => {
+                    document.addEventListener('click', closeHandler);
+                }, 0);
+            }
         }
     }
     
-    // ... (rest of the methods continue with the same pattern of error handling)
+    updateSavedProjectsDropdown() {
+        const menu = document.getElementById('savedProjectsMenu');
+        const projects = this.getSavedProjects();
+        
+        if (menu) {
+            if (projects.length === 0) {
+                menu.innerHTML = `
+                    <div class="project-item" style="justify-content: center; color: var(--color-text-muted);">
+                        <i class="fas fa-folder-open"></i>
+                        <span style="margin-left: 0.5rem;">${this.t('project.noProjects')}</span>
+                    </div>
+                `;
+                return;
+            }
+            
+            menu.innerHTML = projects
+                .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
+                .slice(0, 5)
+                .map(project => `
+                    <div class="project-item" data-project-id="${project.id}">
+                        <div class="project-info">
+                            <div class="project-name">${this.escapeHtml(project.name || 'Unnamed Project')}</div>
+                            <div class="project-meta">
+                                <span>${project.tasks?.length || 0} tasks</span>
+                                <span>•</span>
+                                <span>${this.formatDate(project.updatedAt)}</span>
+                            </div>
+                        </div>
+                        <i class="fas fa-chevron-right" style="color: var(--color-text-muted);"></i>
+                    </div>
+                `).join('');
+            
+            menu.querySelectorAll('.project-item').forEach(item => {
+                item.addEventListener('click', (e) => {
+                    const projectId = e.currentTarget.dataset.projectId;
+                    this.loadProject(projectId);
+                    menu.classList.remove('active');
+                });
+            });
+        }
+    }
+    
+    async generateProjectReport() {
+        if (this.isGeneratingReport) return;
+        this.isGeneratingReport = true;
+        
+        this.showLoadingScreen(this.t('ai.generatingReport'));
+        
+        try {
+            const requestData = {
+                answers: this.answers,
+                tasks: this.tasks,
+                questions: this.questions,
+                language: this.currentLanguage,
+                generateReport: true
+            };
+
+            const response = await fetch('https://intuivabackend-production.up.railway.app/api/generate-report', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(requestData)
+            });
+
+            const result = await response.json();
+
+            if (result.success && result.report) {
+                this.storeProjectReport(result.report);
+                this.showToast(this.t('ai.reportGenerated'), 'success');
+            } else {
+                throw new Error('AI failed to generate report');
+            }
+            
+        } catch (error) {
+            console.warn('Report generation failed:', error);
+            
+            // Generate a simple report locally
+            const localReport = this.generateLocalReport();
+            this.storeProjectReport(localReport);
+            this.showToast(this.t('ai.reportGeneratedLocal'), 'info');
+            
+        } finally {
+            this.hideLoadingScreen();
+            this.isGeneratingReport = false;
+        }
+    }
+    
+    storeProjectReport(report) {
+        if (!this.currentProject) {
+            this.currentProject = {
+                id: this.generateId(),
+                name: this.t('project.defaultName', { date: new Date().toLocaleDateString() }),
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                tasks: this.tasks,
+                answers: this.answers,
+                language: this.currentLanguage
+            };
+        }
+        
+        this.currentProject.report = report;
+        this.currentProject.reportGeneratedAt = new Date().toISOString();
+        this.saveProjectToStorage(this.currentProject);
+        
+        // Display the report
+        this.displayProjectReport(report);
+        
+        // Enable PDF download button
+        const downloadPdfBtn = document.getElementById('downloadPdfBtn');
+        if (downloadPdfBtn) downloadPdfBtn.disabled = false;
+    }
+    
+    displayProjectReport(report) {
+        const reportContent = document.getElementById('reportContent');
+        if (reportContent) {
+            reportContent.innerHTML = `
+                <div style="font-family: inherit;">
+                    <div style="margin-bottom: 1.5rem;">
+                        <h4 style="color: var(--color-primary); margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+                            <i class="fas fa-chart-line"></i>
+                            ${this.currentProject?.name || 'Project'} Analysis Report
+                        </h4>
+                        <div style="color: var(--color-text-muted); font-size: 0.875rem; margin-bottom: 1rem;">
+                            ${this.t('report.generatedOn')} ${new Date().toLocaleDateString()} • ${this.tasks.length} ${this.t('report.tasks')} • ${Object.keys(this.answers).length} ${this.t('report.answersAnalyzed')}
+                        </div>
+                    </div>
+                    
+                    <div style="margin-bottom: 1.5rem;">
+                        ${report.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\*(.*?)\*/g, '<em>$1</em>')}
+                    </div>
+                    
+                    <div style="background-color: var(--color-surface-light); padding: 1rem; border-radius: var(--radius-md); margin-top: 1.5rem;">
+                        <div style="display: flex; align-items: center; gap: 0.5rem; color: var(--color-text-secondary); font-size: 0.875rem;">
+                            <i class="fas fa-lightbulb"></i>
+                            <span>${this.t('report.aiInsights')}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+            reportContent.classList.remove('collapsed');
+        }
+    }
+    
+    generateLocalReport() {
+        const completedTasks = this.tasks.filter(t => t.status === 'done').length;
+        const totalTasks = this.tasks.length;
+        const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+        const highPriorityTasks = this.tasks.filter(t => t.priority === 'high' || t.priority === 'critical').length;
+        const answeredQuestions = Object.values(this.answers).filter(a => 
+            a && a !== '[Skipped]' && a !== '[Not Applicable]'
+        ).length;
+        
+        const isTurkish = this.currentLanguage === 'tr';
+        
+        return isTurkish ? `
+**Proje Özeti**
+${answeredQuestions} soru yanıtına ve ${totalTasks} göreve dayanarak oluşturulmuştur. Tamamlanma oranı: %${completionRate}
+
+**Analiz ve Değerlendirme**
+• **Mevcut Durum**: ${completedTasks} görev tamamlandı, ${totalTasks - completedTasks} görev bekliyor
+• **Öncelik Dağılımı**: ${highPriorityTasks} yüksek öncelikli görev
+• **İlerleme**: %${completionRate} tamamlanma oranı
+
+**Risk Değerlendirmesi**
+• **Orta Risk**: Kapsam belirsizliği olabilir
+• **Düşük Risk**: Temel yapı oluşturulmuş
+
+**Öneriler**
+1. Yüksek öncelikli görevlere odaklanın
+2. Haftalık ilerleme takibi yapın
+3. Görevleri küçük parçalara bölün
+
+**Sonraki Adımlar**
+1. Acil görevleri tamamlayın
+2. İlerlemeyi düzenli olarak gözden geçirin
+3. Proje hedeflerini güncelleyin
+
+*Bu otomatik oluşturulmuş bir rapordur. Detaylar proje ilerledikçe güncellenmelidir.*
+` : `
+**Executive Summary**
+Based on ${answeredQuestions} answers and ${totalTasks} tasks. Completion rate: ${completionRate}%
+
+**Analysis & Assessment**
+• **Current Status**: ${completedTasks} tasks completed, ${totalTasks - completedTasks} tasks pending
+• **Priority Distribution**: ${highPriorityTasks} high-priority tasks
+• **Progress**: ${completionRate}% completion rate
+
+**Risk Assessment**
+• **Medium Risk**: Possible scope uncertainty
+• **Low Risk**: Basic structure established
+
+**Recommendations**
+1. Focus on high-priority tasks
+2. Conduct weekly progress reviews
+3. Break down larger tasks
+
+**Next Steps**
+1. Complete urgent tasks
+2. Regularly review progress
+3. Update project goals
+
+*This is an automatically generated report. Details should be updated as the project progresses.*
+`;
+    }
+    
+    downloadPdfReport() {
+        if (!this.currentProject?.report) {
+            this.showToast(this.t('error.noReport'), 'error');
+            return;
+        }
+        
+        // Create a simple HTML download for now
+        const reportHtml = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <title>${this.currentProject.name} - Project Report</title>
+                <style>
+                    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px; }
+                    h1 { color: #2d3748; border-bottom: 2px solid #8b5cf6; padding-bottom: 10px; }
+                    h2 { color: #4a5568; margin-top: 30px; }
+                    h3 { color: #718096; }
+                    .header { text-align: center; margin-bottom: 40px; }
+                    .meta { color: #718096; font-size: 14px; margin-bottom: 20px; }
+                    .section { margin-bottom: 30px; }
+                    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin: 20px 0; }
+                    .stat-box { background: #f7fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; text-align: center; }
+                    .stat-value { font-size: 24px; font-weight: bold; color: #8b5cf6; }
+                    .stat-label { font-size: 12px; color: #718096; text-transform: uppercase; }
+                    .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #e2e8f0; color: #718096; font-size: 12px; }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <h1>${this.escapeHtml(this.currentProject.name)}</h1>
+                    <div class="meta">
+                        ${this.t('report.generatedBy')} • ${new Date().toLocaleDateString()}
+                    </div>
+                </div>
+                
+                <div class="stats">
+                    <div class="stat-box">
+                        <div class="stat-value">${this.tasks.length}</div>
+                        <div class="stat-label">${this.t('report.totalTasks')}</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value">${this.tasks.filter(t => t.status === 'done').length}</div>
+                        <div class="stat-label">${this.t('report.completed')}</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value">${this.tasks.filter(t => t.priority === 'high' || t.priority === 'critical').length}</div>
+                        <div class="stat-label">${this.t('report.highPriority')}</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value">${Object.keys(this.answers).length}</div>
+                        <div class="stat-label">${this.t('report.questionsAnswered')}</div>
+                    </div>
+                </div>
+                
+                ${this.currentProject.report.split('\n').map(para => {
+                    if (para.trim().startsWith('**') && para.trim().endsWith('**')) {
+                        const title = para.trim().replace(/\*\*/g, '');
+                        return `<h2>${this.escapeHtml(title)}</h2>`;
+                    } else if (para.trim().match(/^\d+\./)) {
+                        return `<p style="margin-left: 20px;">${this.escapeHtml(para)}</p>`;
+                    } else {
+                        return `<p>${this.escapeHtml(para)}</p>`;
+                    }
+                }).join('')}
+                
+                <div class="footer">
+                    <p>${this.t('report.generatedByIntuiva')}</p>
+                    <p>${this.t('report.creator')}: Ilke Candan Bengi • <a href="https://www.linkedin.com/in/ilkecandan/">LinkedIn Profile</a></p>
+                    <p>${this.t('report.generatedOn')}: ${new Date().toLocaleString()}</p>
+                </div>
+            </body>
+            </html>
+        `;
+        
+        const blob = new Blob([reportHtml], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `intuiva-report-${(this.currentProject.name || 'project').replace(/\s+/g, '-').toLowerCase()}.html`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        this.showToast(this.t('toast.pdfDownloaded'), 'success');
+    }
+    
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
 }
 
 // Initialize the app when DOM is loaded
@@ -1051,42 +1872,7 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
         window.intuivaApp = new IntuivaApp();
     } catch (error) {
-        console.error('Failed to initialize Intuiva App:', error);
-        // Show error to user
-        const errorDiv = document.createElement('div');
-        errorDiv.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: #0a0a0f;
-            color: white;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            z-index: 9999;
-            padding: 2rem;
-            text-align: center;
-        `;
-        errorDiv.innerHTML = `
-            <h1 style="color: #ef4444; margin-bottom: 1rem;">⚠️ Application Error</h1>
-            <p>Failed to initialize the application. Please refresh the page.</p>
-            <p style="color: #94a3b8; margin-top: 2rem; font-size: 0.875rem;">Error: ${error.message}</p>
-            <button onclick="location.reload()" style="
-                margin-top: 2rem;
-                padding: 0.5rem 1rem;
-                background: #8b5cf6;
-                color: white;
-                border: none;
-                border-radius: 6px;
-                cursor: pointer;
-                font-size: 0.875rem;
-            ">
-                Refresh Page
-            </button>
-        `;
-        document.body.appendChild(errorDiv);
+        console.error('Failed to initialize IntuivaApp:', error);
+        alert('Failed to initialize the application. Please refresh the page.');
     }
 });
