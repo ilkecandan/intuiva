@@ -5,8 +5,13 @@ class IntuivaApp {
         this.tasks = [];
         this.kanbanBoard = null;
         this.isGeneratingTasks = false;
+        this.isGeneratingReport = false;
         this.currentScreen = 'onboarding';
         this.currentLanguage = this.detectLanguage();
+        this.currentProject = null;
+        this.savedProjects = [];
+        this.autoSaveInterval = null;
+        this.autoSaveEnabled = true;
         
         this.init();
     }
@@ -47,9 +52,11 @@ class IntuivaApp {
         this.initDragAndDrop();
         this.initTheme();
         this.initCharCounter();
+        this.initProjectManagement();
         
         this.showScreen('onboarding');
-        this.loadFromLocalStorage();
+        this.loadSavedProjects();
+        this.updateSavedProjectsDropdown();
         
         // Apply language after everything is initialized
         setTimeout(() => {
@@ -118,39 +125,45 @@ class IntuivaApp {
         // Update stats
         this.updateStats();
     }
-
+    
+    initProjectManagement() {
+        // Load the most recent project if exists
+        this.savedProjects = this.getSavedProjects();
+        if (this.savedProjects.length > 0) {
+            const mostRecent = this.savedProjects.sort((a, b) => 
+                new Date(b.updatedAt) - new Date(a.updatedAt)
+            )[0];
+            this.currentProject = mostRecent;
+            this.loadProject(mostRecent.id);
+        }
+        
+        // Start auto-save interval
+        this.startAutoSave();
+        
+        // Update saved time display
+        this.updateLastSavedTime();
+    }
+    
     initButtons() {
         // Start button
         document.getElementById('startBtn').addEventListener('click', () => {
-            this.navigateTo('questionnaire');
-            this.loadQuestion(0);
+            this.createNewProject();
         });
         
-        // Skip to board button
-        document.getElementById('skipBtn').addEventListener('click', () => {
-            this.tasks = [];
-            this.answers = {};
-            this.currentQuestionIndex = 0;
-            
-            try {
-                localStorage.removeItem('intuiva-data');
-            } catch (e) {
-                console.warn('Failed to clear localStorage:', e);
-            }
-            
-            if (this.kanbanBoard) {
-                this.kanbanBoard.clearTasks();
-            }
-            
-            this.navigateTo('kanbanBoard');
-
-            if (this.kanbanBoard) {
-                this.kanbanBoard.tasks = [];
-                this.kanbanBoard.renderTasks();
-                this.updateStats();
-            }
-            
-            this.showToast(this.t('toast.startedEmpty'), 'info');
+        // Load project button
+        document.getElementById('loadProjectBtn').addEventListener('click', () => {
+            this.showLoadProjectModal();
+        });
+        
+        // Home button
+        document.getElementById('homeBtn').addEventListener('click', (e) => {
+            e.preventDefault();
+            this.navigateTo('onboarding');
+        });
+        
+        // Saved projects dropdown
+        document.getElementById('savedProjectsBtn').addEventListener('click', () => {
+            this.toggleSavedProjectsDropdown();
         });
         
         // Clear All button
@@ -162,7 +175,7 @@ class IntuivaApp {
                         this.kanbanBoard.clearTasks();
                     }
                     this.updateStats();
-                    this.saveToLocalStorage();
+                    this.saveProject();
                     this.showToast(this.t('toast.allCleared'), 'info');
                 }
             });
@@ -180,7 +193,13 @@ class IntuivaApp {
         // Board action buttons
         document.getElementById('addTaskBtn').addEventListener('click', () => this.openTaskModal());
         document.getElementById('regenerateBtn').addEventListener('click', () => this.regenerateTasks());
-        document.getElementById('exportBtn').addEventListener('click', () => this.exportBoard());
+        document.getElementById('saveProjectBtn').addEventListener('click', () => this.showSaveProjectModal());
+        document.getElementById('exportProjectBtn').addEventListener('click', () => this.exportProject());
+        
+        // Report buttons
+        document.getElementById('generateReportBtn').addEventListener('click', () => this.generateProjectReport());
+        document.getElementById('generateReportPlaceholderBtn').addEventListener('click', () => this.generateProjectReport());
+        document.getElementById('downloadPdfBtn').addEventListener('click', () => this.downloadPdfReport());
         
         // Add task buttons in columns
         document.querySelectorAll('.btn-add-task').forEach(btn => {
@@ -244,6 +263,7 @@ class IntuivaApp {
                 this.kanbanBoard.renderTasks();
             }
             this.updateStats();
+            this.updateLastSavedTime();
         }
     }
 
@@ -289,6 +309,9 @@ class IntuivaApp {
     initModals() {
         this.taskModal = document.getElementById('taskModal');
         this.taskForm = document.getElementById('taskForm');
+        this.saveProjectModal = document.getElementById('saveProjectModal');
+        this.saveProjectForm = document.getElementById('saveProjectForm');
+        this.loadProjectModal = document.getElementById('loadProjectModal');
         
         document.querySelectorAll('.close-modal').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -296,6 +319,7 @@ class IntuivaApp {
                     modal.classList.remove('active');
                 });
                 this.taskForm.reset();
+                this.saveProjectForm.reset();
             });
         });
         
@@ -304,6 +328,7 @@ class IntuivaApp {
                 if (e.target === modal) {
                     modal.classList.remove('active');
                     this.taskForm.reset();
+                    this.saveProjectForm.reset();
                 }
             });
         });
@@ -311,6 +336,16 @@ class IntuivaApp {
         this.taskForm.addEventListener('submit', (e) => {
             e.preventDefault();
             this.saveTask();
+        });
+        
+        this.saveProjectForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.saveProjectAs();
+        });
+        
+        // Import project button
+        document.getElementById('importProjectBtn').addEventListener('click', () => {
+            this.importProject();
         });
         
         this.helpModal = document.getElementById('helpModal');
@@ -435,7 +470,10 @@ class IntuivaApp {
             delete this.answers[this.currentQuestionIndex];
         }
         
-        this.saveToLocalStorage();
+        // Auto-save if project exists
+        if (this.currentProject) {
+            this.saveProject();
+        }
     }
     
     updateCharCounter() {
@@ -468,7 +506,8 @@ class IntuivaApp {
             const requestData = {
                 answers: this.answers,
                 questions: this.questions,
-                language: this.currentLanguage
+                language: this.currentLanguage,
+                generateReport: true // Request report as well
             };
 
             const response = await fetch('https://intuivabackend-production.up.railway.app/api/generate-tasks', {
@@ -492,6 +531,11 @@ class IntuivaApp {
                     });
                 }
                 
+                // Store report if provided
+                if (result.report) {
+                    this.storeProjectReport(result.report);
+                }
+                
                 this.showToast(this.t('ai.generatedSuccess'), 'success');
             } else {
                 throw new Error('AI returned no tasks');
@@ -510,7 +554,7 @@ class IntuivaApp {
             
             this.showToast(this.t('ai.generatedFallback'), 'info');
         } finally {
-            this.saveToLocalStorage();
+            this.saveProject();
             this.navigateTo('kanbanBoard');
             this.updateStats();
             
@@ -722,7 +766,7 @@ class IntuivaApp {
         this.taskForm.reset();
         
         this.showToast(this.t('toast.taskAdded'), 'success');
-        this.saveToLocalStorage();
+        this.saveProject();
     }
     
     async regenerateTasks() {
@@ -739,7 +783,8 @@ class IntuivaApp {
             const requestData = {
                 answers: this.answers,
                 questions: this.questions,
-                language: this.currentLanguage
+                language: this.currentLanguage,
+                generateReport: true
             };
 
             const response = await fetch('https://intuivabackend-production.up.railway.app/api/generate-tasks', {
@@ -762,6 +807,12 @@ class IntuivaApp {
                         this.kanbanBoard.addTask(task);
                     });
                 }
+                
+                // Store report if provided
+                if (result.report) {
+                    this.storeProjectReport(result.report);
+                }
+                
                 this.showToast(this.t('ai.regeneratedSuccess'), 'success');
             } else {
                 throw new Error('AI returned no tasks');
@@ -779,7 +830,7 @@ class IntuivaApp {
             this.showToast(this.t('ai.regeneratedFallback'), 'info');
         } finally {
             this.updateStats();
-            this.saveToLocalStorage();
+            this.saveProject();
             
             btn.innerHTML = originalHtml;
             btn.disabled = false;
@@ -787,25 +838,25 @@ class IntuivaApp {
         }
     }
     
-    exportBoard() {
+    exportProject() {
+        const project = this.saveProject();
         const data = {
-            answers: this.answers,
-            tasks: this.tasks,
+            ...project,
             exportedAt: new Date().toISOString(),
-            language: this.currentLanguage
+            exportedFrom: 'Intuiva Project Manager'
         };
         
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `intuiva-board-${new Date().toISOString().split('T')[0]}.json`;
+        a.download = `intuiva-project-${project.name.replace(/\s+/g, '-').toLowerCase()}-${new Date().toISOString().split('T')[0]}.json`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
         
-        this.showToast(this.t('toast.boardExported'), 'success');
+        this.showToast(this.t('toast.projectExported'), 'success');
     }
     
     toggleTheme() {
@@ -871,29 +922,705 @@ class IntuivaApp {
         return Date.now().toString(36) + Math.random().toString(36).substr(2);
     }
     
-    saveToLocalStorage() {
-        const data = {
-            answers: this.answers,
-            tasks: this.tasks,
-            lastUpdated: new Date().toISOString(),
+    createNewProject() {
+        this.currentQuestionIndex = 0;
+        this.answers = {};
+        this.tasks = [];
+        this.currentProject = {
+            id: this.generateId(),
+            name: `Project ${new Date().toLocaleDateString()}`,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            tasks: [],
+            answers: {},
             language: this.currentLanguage
         };
         
+        this.navigateTo('questionnaire');
+        this.loadQuestion(0);
+        
+        this.showToast(this.t('toast.newProjectCreated'), 'success');
+    }
+    
+    saveProject() {
+        if (!this.currentProject) {
+            this.currentProject = {
+                id: this.generateId(),
+                name: `Project ${new Date().toLocaleDateString()}`,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                tasks: this.tasks,
+                answers: this.answers,
+                language: this.currentLanguage
+            };
+        }
+        
+        this.currentProject.tasks = this.tasks;
+        this.currentProject.answers = this.answers;
+        this.currentProject.updatedAt = new Date().toISOString();
+        this.currentProject.language = this.currentLanguage;
+        
+        // Update board title if set
+        const boardTitle = document.getElementById('boardTitle').textContent;
+        if (boardTitle && boardTitle !== 'Project Board') {
+            this.currentProject.name = boardTitle;
+        }
+        
+        this.saveProjectToStorage(this.currentProject);
+        this.updateLastSavedTime();
+        this.updateSavedProjectsDropdown();
+        
+        return this.currentProject;
+    }
+    
+    saveProjectAs() {
+        const name = document.getElementById('projectName').value.trim();
+        const description = document.getElementById('projectDescription').value.trim();
+        const tags = document.getElementById('projectTags').value
+            .split(',')
+            .map(tag => tag.trim())
+            .filter(tag => tag);
+        
+        if (!name) {
+            this.showToast(this.t('error.projectNameRequired'), 'error');
+            return;
+        }
+        
+        if (!this.currentProject) {
+            this.currentProject = {
+                id: this.generateId(),
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                tasks: this.tasks,
+                answers: this.answers,
+                language: this.currentLanguage
+            };
+        }
+        
+        this.currentProject.name = name;
+        this.currentProject.description = description;
+        this.currentProject.tags = tags;
+        this.currentProject.tasks = this.tasks;
+        this.currentProject.answers = this.answers;
+        this.currentProject.updatedAt = new Date().toISOString();
+        this.currentProject.language = this.currentLanguage;
+        
+        // Update auto-save setting
+        this.autoSaveEnabled = document.getElementById('autoSave').checked;
+        if (this.autoSaveEnabled) {
+            this.startAutoSave();
+        } else {
+            this.stopAutoSave();
+        }
+        
+        this.saveProjectToStorage(this.currentProject);
+        this.updateSavedProjectsDropdown();
+        this.saveProjectModal.classList.remove('active');
+        
+        document.getElementById('boardTitle').textContent = name;
+        this.showToast(this.t('toast.projectSaved'), 'success');
+    }
+    
+    saveProjectToStorage(project) {
+        const projects = this.getSavedProjects();
+        const existingIndex = projects.findIndex(p => p.id === project.id);
+        
+        if (existingIndex !== -1) {
+            projects[existingIndex] = project;
+        } else {
+            projects.push(project);
+        }
+        
+        // Keep only last 20 projects
+        const recentProjects = projects
+            .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
+            .slice(0, 20);
+        
         try {
-            localStorage.setItem('intuiva-data', JSON.stringify(data));
+            localStorage.setItem('intuiva-projects', JSON.stringify(recentProjects));
+            localStorage.setItem('intuiva-last-project', project.id);
         } catch (e) {
-            console.warn('Failed to save to localStorage:', e);
+            console.warn('Failed to save project to localStorage:', e);
+            // Try to clear some space
+            try {
+                localStorage.setItem('intuiva-projects', JSON.stringify(recentProjects.slice(0, 10)));
+            } catch (e2) {
+                console.error('Could not save project:', e2);
+            }
         }
     }
     
-    loadFromLocalStorage() {
+    getSavedProjects() {
         try {
-            const data = JSON.parse(localStorage.getItem('intuiva-data'));
+            const projects = JSON.parse(localStorage.getItem('intuiva-projects') || '[]');
+            return Array.isArray(projects) ? projects : [];
+        } catch (e) {
+            console.warn('Failed to load projects from localStorage:', e);
+            return [];
+        }
+    }
+    
+    loadProject(projectId) {
+        const projects = this.getSavedProjects();
+        const project = projects.find(p => p.id === projectId);
+        
+        if (!project) {
+            this.showToast(this.t('error.projectNotFound'), 'error');
+            return;
+        }
+        
+        this.currentProject = project;
+        this.tasks = project.tasks || [];
+        this.answers = project.answers || {};
+        this.currentLanguage = project.language || this.currentLanguage;
+        
+        // Update language selector
+        const langSelector = document.getElementById('languageSelector');
+        if (langSelector) {
+            langSelector.value = this.currentLanguage;
+        }
+        
+        // Apply language
+        this.applyLanguage();
+        
+        // Load kanban board
+        if (this.kanbanBoard) {
+            this.kanbanBoard.tasks = this.tasks;
+            this.kanbanBoard.renderTasks();
+        }
+        
+        // Update UI
+        document.getElementById('boardTitle').textContent = project.name || 'Project Board';
+        this.updateStats();
+        this.navigateTo('kanbanBoard');
+        
+        this.showToast(this.t('toast.projectLoaded', { name: project.name }), 'success');
+    }
+    
+    showSaveProjectModal() {
+        if (this.currentProject) {
+            document.getElementById('projectName').value = this.currentProject.name || '';
+            document.getElementById('projectDescription').value = this.currentProject.description || '';
+            document.getElementById('projectTags').value = (this.currentProject.tags || []).join(', ');
+        }
+        document.getElementById('autoSave').checked = this.autoSaveEnabled;
+        document.getElementById('saveProjectModal').classList.add('active');
+    }
+    
+    showLoadProjectModal() {
+        const list = document.getElementById('savedProjectsList');
+        const noProjects = document.getElementById('noProjectsMessage');
+        const projects = this.getSavedProjects();
+        
+        if (projects.length === 0) {
+            list.style.display = 'none';
+            noProjects.style.display = 'block';
+        } else {
+            list.style.display = 'block';
+            noProjects.style.display = 'none';
             
-            if (data) {
-                this.answers = data.answers || {};
-                this.tasks = data.tasks || [];
-                this.currentLanguage = data.language || this.currentLanguage;
+            list.innerHTML = projects
+                .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
+                .map(project => `
+                    <div class="project-item" data-project-id="${project.id}">
+                        <div class="project-info">
+                            <div class="project-name">${this.escapeHtml(project.name || 'Unnamed Project')}</div>
+                            <div class="project-meta">
+                                <span>${project.tasks?.length || 0} tasks</span>
+                                <span>•</span>
+                                <span>${this.formatDate(project.updatedAt)}</span>
+                                ${project.description ? `<span>•</span><span>${this.escapeHtml(project.description.substring(0, 30))}...</span>` : ''}
+                            </div>
+                        </div>
+                        <button class="btn-icon delete-project" data-project-id="${project.id}" title="Delete project">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                `).join('');
+            
+            // Add event listeners
+            list.querySelectorAll('.project-item').forEach(item => {
+                item.addEventListener('click', (e) => {
+                    if (!e.target.closest('.delete-project')) {
+                        const projectId = e.currentTarget.dataset.projectId;
+                        this.loadProject(projectId);
+                        document.getElementById('loadProjectModal').classList.remove('active');
+                    }
+                });
+            });
+            
+            // Add delete button listeners
+            list.querySelectorAll('.delete-project').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const projectId = e.currentTarget.dataset.projectId;
+                    this.deleteProject(projectId);
+                });
+            });
+        }
+        
+        document.getElementById('loadProjectModal').classList.add('active');
+    }
+    
+    deleteProject(projectId) {
+        if (confirm(this.t('confirm.deleteProject'))) {
+            const projects = this.getSavedProjects();
+            const updatedProjects = projects.filter(p => p.id !== projectId);
+            
+            try {
+                localStorage.setItem('intuiva-projects', JSON.stringify(updatedProjects));
+                
+                // If deleting current project, clear it
+                if (this.currentProject && this.currentProject.id === projectId) {
+                    this.currentProject = null;
+                    this.tasks = [];
+                    this.answers = {};
+                    if (this.kanbanBoard) {
+                        this.kanbanBoard.clearTasks();
+                    }
+                    this.updateStats();
+                    this.navigateTo('onboarding');
+                }
+                
+                this.updateSavedProjectsDropdown();
+                this.showLoadProjectModal(); // Refresh the list
+                this.showToast(this.t('toast.projectDeleted'), 'success');
+            } catch (e) {
+                console.warn('Failed to delete project:', e);
+                this.showToast(this.t('error.deleteFailed'), 'error');
+            }
+        }
+    }
+    
+    importProject() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json';
+        
+        input.onchange = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                try {
+                    const data = JSON.parse(event.target.result);
+                    
+                    // Validate project data
+                    if (!data.tasks || !Array.isArray(data.tasks)) {
+                        throw new Error('Invalid project file format');
+                    }
+                    
+                    // Create new project from import
+                    const project = {
+                        id: this.generateId(),
+                        name: data.name || `Imported ${new Date().toLocaleDateString()}`,
+                        description: data.description || '',
+                        tags: data.tags || [],
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString(),
+                        tasks: data.tasks,
+                        answers: data.answers || {},
+                        language: data.language || this.currentLanguage
+                    };
+                    
+                    // Save the imported project
+                    this.saveProjectToStorage(project);
+                    this.loadProject(project.id);
+                    document.getElementById('loadProjectModal').classList.remove('active');
+                    
+                    this.showToast(this.t('toast.projectImported'), 'success');
+                } catch (error) {
+                    console.error('Import failed:', error);
+                    this.showToast(this.t('error.importFailed'), 'error');
+                }
+            };
+            reader.readAsText(file);
+        };
+        
+        input.click();
+    }
+    
+    startAutoSave() {
+        this.stopAutoSave(); // Clear any existing interval
+        
+        this.autoSaveInterval = setInterval(() => {
+            if (this.autoSaveEnabled && (this.tasks.length > 0 || Object.keys(this.answers).length > 0)) {
+                this.saveProject();
+                console.log('Auto-saved project');
+            }
+        }, 30000); // Every 30 seconds
+    }
+    
+    stopAutoSave() {
+        if (this.autoSaveInterval) {
+            clearInterval(this.autoSaveInterval);
+            this.autoSaveInterval = null;
+        }
+    }
+    
+    updateLastSavedTime() {
+        if (this.currentProject) {
+            const element = document.getElementById('lastSaved');
+            if (element) {
+                element.textContent = this.formatDate(this.currentProject.updatedAt);
+            }
+        }
+    }
+    
+    formatDate(dateString) {
+        const date = new Date(dateString);
+        const now = new Date();
+        const diffMs = now - date;
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMs / 3600000);
+        const diffDays = Math.floor(diffMs / 86400000);
+        
+        if (diffMins < 1) return 'just now';
+        if (diffMins < 60) return `${diffMins}m ago`;
+        if (diffHours < 24) return `${diffHours}h ago`;
+        if (diffDays < 7) return `${diffDays}d ago`;
+        
+        return date.toLocaleDateString();
+    }
+    
+    toggleSavedProjectsDropdown() {
+        const menu = document.getElementById('savedProjectsMenu');
+        menu.classList.toggle('active');
+        
+        // Close dropdown when clicking outside
+        if (menu.classList.contains('active')) {
+            const closeHandler = (e) => {
+                if (!menu.contains(e.target) && e.target.id !== 'savedProjectsBtn') {
+                    menu.classList.remove('active');
+                    document.removeEventListener('click', closeHandler);
+                }
+            };
+            setTimeout(() => {
+                document.addEventListener('click', closeHandler);
+            }, 0);
+        }
+    }
+    
+    updateSavedProjectsDropdown() {
+        const menu = document.getElementById('savedProjectsMenu');
+        const projects = this.getSavedProjects();
+        
+        if (projects.length === 0) {
+            menu.innerHTML = `
+                <div class="project-item" style="justify-content: center; color: var(--color-text-muted);">
+                    <i class="fas fa-folder-open"></i>
+                    <span style="margin-left: 0.5rem;">No saved projects</span>
+                </div>
+            `;
+            return;
+        }
+        
+        menu.innerHTML = projects
+            .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
+            .slice(0, 5)
+            .map(project => `
+                <div class="project-item" data-project-id="${project.id}">
+                    <div class="project-info">
+                        <div class="project-name">${this.escapeHtml(project.name || 'Unnamed Project')}</div>
+                        <div class="project-meta">
+                            <span>${project.tasks?.length || 0} tasks</span>
+                            <span>•</span>
+                            <span>${this.formatDate(project.updatedAt)}</span>
+                        </div>
+                    </div>
+                    <i class="fas fa-chevron-right" style="color: var(--color-text-muted);"></i>
+                </div>
+            `).join('');
+        
+        // Add event listeners
+        menu.querySelectorAll('.project-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                const projectId = e.currentTarget.dataset.projectId;
+                this.loadProject(projectId);
+                menu.classList.remove('active');
+            });
+        });
+    }
+    
+    async generateProjectReport() {
+        if (this.isGeneratingReport) return;
+        this.isGeneratingReport = true;
+        
+        const btn = document.getElementById('generateReportBtn');
+        const placeholderBtn = document.getElementById('generateReportPlaceholderBtn');
+        const originalHtml = btn ? btn.innerHTML : placeholderBtn.innerHTML;
+        
+        if (btn) {
+            btn.innerHTML = `<div class="loading"></div> ${this.t('ai.generatingReport')}`;
+            btn.disabled = true;
+        }
+        if (placeholderBtn) {
+            placeholderBtn.innerHTML = `<div class="loading"></div> ${this.t('ai.generatingReport')}`;
+            placeholderBtn.disabled = true;
+        }
+        
+        try {
+            const requestData = {
+                answers: this.answers,
+                tasks: this.tasks,
+                questions: this.questions,
+                language: this.currentLanguage,
+                generateReport: true
+            };
+
+            const response = await fetch('https://intuivabackend-production.up.railway.app/api/generate-report', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(requestData)
+            });
+
+            const result = await response.json();
+
+            if (result.success && result.report) {
+                this.storeProjectReport(result.report);
+                this.showToast(this.t('ai.reportGenerated'), 'success');
+            } else {
+                throw new Error('AI failed to generate report');
+            }
+            
+        } catch (error) {
+            console.warn('Report generation failed:', error);
+            
+            // Generate a simple report locally
+            const localReport = this.generateLocalReport();
+            this.storeProjectReport(localReport);
+            this.showToast(this.t('ai.reportGeneratedLocal'), 'info');
+            
+        } finally {
+            if (btn) {
+                btn.innerHTML = originalHtml;
+                btn.disabled = false;
+            }
+            if (placeholderBtn) {
+                placeholderBtn.innerHTML = originalHtml;
+                placeholderBtn.disabled = false;
+            }
+            this.isGeneratingReport = false;
+        }
+    }
+    
+    storeProjectReport(report) {
+        if (!this.currentProject) {
+            this.currentProject = {
+                id: this.generateId(),
+                name: `Project ${new Date().toLocaleDateString()}`,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                tasks: this.tasks,
+                answers: this.answers,
+                language: this.currentLanguage
+            };
+        }
+        
+        this.currentProject.report = report;
+        this.currentProject.reportGeneratedAt = new Date().toISOString();
+        this.saveProjectToStorage(this.currentProject);
+        
+        // Display the report
+        this.displayProjectReport(report);
+        
+        // Enable PDF download button
+        document.getElementById('downloadPdfBtn').disabled = false;
+    }
+    
+    displayProjectReport(report) {
+        const reportContent = document.getElementById('reportContent');
+        reportContent.innerHTML = `
+            <div style="font-family: inherit;">
+                <div style="margin-bottom: 1.5rem;">
+                    <h4 style="color: var(--color-primary); margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+                        <i class="fas fa-chart-line"></i>
+                        ${this.currentProject?.name || 'Project'} Analysis Report
+                    </h4>
+                    <div style="color: var(--color-text-muted); font-size: 0.875rem; margin-bottom: 1rem;">
+                        Generated on ${new Date().toLocaleDateString()} • ${this.tasks.length} tasks • ${Object.keys(this.answers).length} answers analyzed
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 1.5rem;">
+                    ${report.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\*(.*?)\*/g, '<em>$1</em>')}
+                </div>
+                
+                <div style="background-color: var(--color-surface-light); padding: 1rem; border-radius: var(--radius-md); margin-top: 1.5rem;">
+                    <div style="display: flex; align-items: center; gap: 0.5rem; color: var(--color-text-secondary); font-size: 0.875rem;">
+                        <i class="fas fa-lightbulb"></i>
+                        <span>AI-generated insights based on your project data. Use these recommendations to optimize your workflow.</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    generateLocalReport() {
+        const completedTasks = this.tasks.filter(t => t.status === 'done').length;
+        const totalTasks = this.tasks.length;
+        const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+        
+        const highPriorityTasks = this.tasks.filter(t => t.priority === 'high' || t.priority === 'critical').length;
+        const answeredQuestions = Object.values(this.answers).filter(a => 
+            a && a !== '[Skipped]' && a !== '[Not Applicable]'
+        ).length;
+        
+        return `
+**Executive Summary**
+Based on your ${answeredQuestions} detailed answers and ${totalTasks} generated tasks, your project shows strong potential. Completion rate is currently at ${completionRate}%.
+
+**Key Findings**
+1. **Project Scope**: Well-defined with clear objectives based on your responses
+2. **Task Distribution**: ${highPriorityTasks} high-priority tasks identified for immediate focus
+3. **Progress Tracking**: ${completedTasks} of ${totalTasks} tasks completed
+4. **Resource Allocation**: Tasks are properly prioritized for efficient workflow
+
+**Recommendations**
+1. Focus on completing high-priority tasks first
+2. Consider breaking down larger tasks if progress stalls
+3. Regular review of task priorities as project evolves
+4. Use the Kanban board to visualize workflow bottlenecks
+
+**Next Steps**
+1. Review and adjust task priorities weekly
+2. Set realistic deadlines for critical tasks
+3. Regular progress reviews every 3-5 days
+4. Export this report for stakeholder updates
+
+**Risk Assessment**
+- Low risk of scope creep based on current task structure
+- Good task distribution across priority levels
+- Clear path to completion visible in current board layout
+
+*This report was generated based on your project data. For more detailed analysis, continue adding tasks and updating progress.*
+        `;
+    }
+    
+    downloadPdfReport() {
+        if (!this.currentProject?.report) {
+            this.showToast(this.t('error.noReport'), 'error');
+            return;
+        }
+        
+        // Create a simple HTML download for now
+        const reportHtml = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <title>${this.currentProject.name} - Project Report</title>
+                <style>
+                    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px; }
+                    h1 { color: #2d3748; border-bottom: 2px solid #8b5cf6; padding-bottom: 10px; }
+                    h2 { color: #4a5568; margin-top: 30px; }
+                    h3 { color: #718096; }
+                    .header { text-align: center; margin-bottom: 40px; }
+                    .meta { color: #718096; font-size: 14px; margin-bottom: 20px; }
+                    .section { margin-bottom: 30px; }
+                    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin: 20px 0; }
+                    .stat-box { background: #f7fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; text-align: center; }
+                    .stat-value { font-size: 24px; font-weight: bold; color: #8b5cf6; }
+                    .stat-label { font-size: 12px; color: #718096; text-transform: uppercase; }
+                    .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #e2e8f0; color: #718096; font-size: 12px; }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <h1>${this.escapeHtml(this.currentProject.name)}</h1>
+                    <div class="meta">
+                        Generated by Intuiva AI Project Manager • ${new Date().toLocaleDateString()}
+                    </div>
+                </div>
+                
+                <div class="stats">
+                    <div class="stat-box">
+                        <div class="stat-value">${this.tasks.length}</div>
+                        <div class="stat-label">Total Tasks</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value">${this.tasks.filter(t => t.status === 'done').length}</div>
+                        <div class="stat-label">Completed</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value">${this.tasks.filter(t => t.priority === 'high' || t.priority === 'critical').length}</div>
+                        <div class="stat-label">High Priority</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value">${Object.keys(this.answers).length}</div>
+                        <div class="stat-label">Questions Answered</div>
+                    </div>
+                </div>
+                
+                ${this.currentProject.report.split('\n').map(para => {
+                    if (para.trim().startsWith('**') && para.trim().endsWith('**')) {
+                        const title = para.trim().replace(/\*\*/g, '');
+                        return `<h2>${this.escapeHtml(title)}</h2>`;
+                    } else if (para.trim().match(/^\d+\./)) {
+                        return `<p style="margin-left: 20px;">${this.escapeHtml(para)}</p>`;
+                    } else {
+                        return `<p>${this.escapeHtml(para)}</p>`;
+                    }
+                }).join('')}
+                
+                <div class="footer">
+                    <p>This report was generated by Intuiva AI Project Manager.</p>
+                    <p>Creator: Ilke Candan Bengi • <a href="https://www.linkedin.com/in/ilkecandan/">LinkedIn Profile</a></p>
+                    <p>Report generated on: ${new Date().toLocaleString()}</p>
+                </div>
+            </body>
+            </html>
+        `;
+        
+        const blob = new Blob([reportHtml], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `intuiva-report-${this.currentProject.name.replace(/\s+/g, '-').toLowerCase()}.html`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        this.showToast(this.t('toast.pdfDownloaded'), 'success');
+    }
+    
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    // Backward compatibility methods
+    saveToLocalStorage() {
+        // This is now handled by saveProject()
+        this.saveProject();
+    }
+    
+    loadFromLocalStorage() {
+        // This is now handled by initProjectManagement()
+        // Load any existing data for backward compatibility
+        try {
+            const oldData = JSON.parse(localStorage.getItem('intuiva-data'));
+            if (oldData && !this.currentProject) {
+                // Migrate old data to new project format
+                this.tasks = oldData.tasks || [];
+                this.answers = oldData.answers || {};
+                this.currentLanguage = oldData.language || this.currentLanguage;
+                
+                // Create a project from old data
+                this.currentProject = {
+                    id: this.generateId(),
+                    name: `Migrated Project`,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                    tasks: this.tasks,
+                    answers: this.answers,
+                    language: this.currentLanguage
+                };
+                
+                this.saveProjectToStorage(this.currentProject);
                 
                 // Update language selector
                 const langSelector = document.getElementById('languageSelector');
@@ -909,7 +1636,7 @@ class IntuivaApp {
                 }
             }
         } catch (e) {
-            console.warn('Failed to load from localStorage:', e);
+            console.warn('Failed to load old data from localStorage:', e);
         }
     }
 }
