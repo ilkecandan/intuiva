@@ -108,26 +108,25 @@
                         <div class="progress-bar">
                             <div class="progress-fill" id="progressFill"></div>
                         </div>
-                        <span class="progress-text" id="progressText" data-i18n="question.progress" data-i18n-current="1" data-i18n-total="24">Question 1 of 24</span>
+                        <span class="progress-text" id="progressText">Question 1 of 24</span>
                     </div>
                     
                     <div class="category-indicator">
-                        <span id="categoryTitle">Category 1: Understanding Value</span>
+                        <span id="categoryTitle" data-i18n="question.category">Category 1: Understanding Value</span>
                     </div>
                 </div>
 
                 <div class="question-content">
                     <div class="question-card">
                         <div class="question-header">
-                            <span class="question-number" id="questionNumber" data-i18n="question.number" data-i18n-number="1">Q1</span>
-                            <h3 id="questionTitle">Question Title</h3>
+                            <span class="question-number" id="questionNumber">Q1</span>
+                            <h3 id="questionTitle" data-i18n="question.defaultTitle">Question Title</h3>
                         </div>
-                        <p class="question-text" id="questionText">Question text goes here...</p>
+                        <p class="question-text" id="questionText" data-i18n="question.defaultText">Question text goes here...</p>
                         
                         <div class="answer-container">
                             <textarea 
                                 id="answerInput" 
-                                data-i18n-placeholder="question.placeholder"
                                 placeholder="Type your answer here... (Press Enter for new line, Ctrl+Enter to submit)"
                                 rows="6"
                             ></textarea>
@@ -218,8 +217,8 @@
                         <!-- Tasks will be added here by JavaScript -->
                     </div>
                     <div class="column-footer">
-                        <button class="btn-add-task" data-column="todo" data-i18n="button.addTask">
-                            <i class="fas fa-plus"></i> Add Task
+                        <button class="btn-add-task" data-column="todo">
+                            <i class="fas fa-plus"></i> <span data-i18n="button.addTask">Add Task</span>
                         </button>
                     </div>
                 </div>
@@ -233,8 +232,8 @@
                         <!-- Tasks will be added here by JavaScript -->
                     </div>
                     <div class="column-footer">
-                        <button class="btn-add-task" data-column="inprogress" data-i18n="button.addTask">
-                            <i class="fas fa-plus"></i> Add Task
+                        <button class="btn-add-task" data-column="inprogress">
+                            <i class="fas fa-plus"></i> <span data-i18n="button.addTask">Add Task</span>
                         </button>
                     </div>
                 </div>
@@ -248,8 +247,8 @@
                         <!-- Tasks will be added here by JavaScript -->
                     </div>
                     <div class="column-footer">
-                        <button class="btn-add-task" data-column="done" data-i18n="button.addTask">
-                            <i class="fas fa-plus"></i> Add Task
+                        <button class="btn-add-task" data-column="done">
+                            <i class="fas fa-plus"></i> <span data-i18n="button.addTask">Add Task</span>
                         </button>
                     </div>
                 </div>
@@ -261,7 +260,7 @@
     <div id="taskModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3 data-i18n="modal.addTask">Add New Task</h3>
+                <h3 id="modalTitle" data-i18n="modal.addTask">Add New Task</h3>
                 <button class="btn-icon close-modal">
                     <i class="fas fa-times"></i>
                 </button>
@@ -270,11 +269,11 @@
                 <form id="taskForm">
                     <div class="form-group">
                         <label for="taskTitle" data-i18n="form.taskTitle">Task Title</label>
-                        <input type="text" id="taskTitle" required data-i18n-placeholder="form.taskTitlePlaceholder" placeholder="Enter task title...">
+                        <input type="text" id="taskTitle" required>
                     </div>
                     <div class="form-group">
                         <label for="taskDescription" data-i18n="form.description">Description</label>
-                        <textarea id="taskDescription" rows="4" data-i18n-placeholder="form.descriptionPlaceholder" placeholder="Describe the task..."></textarea>
+                        <textarea id="taskDescription" rows="4"></textarea>
                     </div>
                     <div class="form-row">
                         <div class="form-group">
@@ -297,7 +296,7 @@
                     </div>
                     <div class="form-group">
                         <label for="taskTags" data-i18n="form.tags">Tags (comma-separated)</label>
-                        <input type="text" id="taskTags" data-i18n-placeholder="form.tagsPlaceholder" placeholder="e.g., frontend, backend, design">
+                        <input type="text" id="taskTags">
                     </div>
                 </form>
             </div>
