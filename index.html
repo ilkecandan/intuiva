@@ -11,7 +11,7 @@
     <meta name="theme-color" content="#0a0a0f">
     <meta name="description" content="AI-powered project management with smart task generation and Kanban boards">
     
-    <!-- New: Guide Animation Styles -->
+    <!-- Guide Animation Styles -->
     <style>
         @keyframes bounce {
             0%, 100% { transform: translateY(0); }
@@ -104,6 +104,140 @@
             animation: highlight 2s infinite;
             border-color: var(--color-primary) !important;
         }
+        
+        /* Moved dropdown styles here to avoid duplicate variable declaration */
+        .saved-projects-dropdown {
+            position: relative;
+        }
+        
+        .dropdown-menu {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            background: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-xl);
+            min-width: 250px;
+            max-height: 400px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+            margin-top: 0.5rem;
+        }
+        
+        .dropdown-menu.active {
+            display: block;
+        }
+        
+        .project-item {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--color-border-light);
+            cursor: pointer;
+            transition: background-color var(--transition-fast);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .project-item:hover {
+            background-color: var(--color-surface-light);
+        }
+        
+        .project-item:last-child {
+            border-bottom: none;
+        }
+        
+        .project-info {
+            flex: 1;
+        }
+        
+        .project-name {
+            font-weight: 500;
+            font-size: 0.875rem;
+            margin-bottom: 0.25rem;
+        }
+        
+        .project-meta {
+            font-size: 0.75rem;
+            color: var(--color-text-muted);
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .saved-projects-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .project-name-display {
+            background: var(--color-surface-light);
+            padding: 0.375rem 0.75rem;
+            border-radius: var(--radius-md);
+            font-size: 0.875rem;
+            font-weight: 500;
+            border: 1px solid var(--color-border);
+            max-width: 200px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .btn-circle {
+            width: 3rem;
+            height: 3rem;
+            border-radius: 50%;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .question-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--color-border);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+        }
+        
+        .question-dot.active {
+            background: var(--color-primary);
+            transform: scale(1.2);
+        }
+        
+        .question-dot.answered {
+            background: var(--color-success);
+        }
+        
+        .question-dot.skipped {
+            background: var(--color-warning);
+        }
+        
+        /* Fix for overflowing projects in nav bar */
+        .nav-container {
+            position: relative;
+            overflow: visible;
+        }
+        
+        .nav-actions {
+            position: relative;
+            z-index: 1001;
+        }
+        
+        .saved-projects-dropdown .dropdown-menu {
+            max-width: 300px;
+            white-space: normal;
+        }
+        
+        .project-item .project-name {
+            max-width: 200px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -116,8 +250,8 @@
                 <span class="tagline" data-i18n="nav.tagline">AI Project Management</span>
             </a>
             
-            <!-- Project Name Display -->
-            <div class="project-name-display" id="projectNameDisplay" style="display: none;">
+            <!-- Project Name Display - Fixed positioning -->
+            <div class="project-name-display" id="projectNameDisplay" style="display: none; position: absolute; left: 50%; transform: translateX(-50%); z-index: 10;">
                 <span id="currentProjectName">Untitled Project</span>
             </div>
             
@@ -524,7 +658,7 @@
         </section>
     </main>
 
-    <!-- Modals (unchanged but included for completeness) -->
+    <!-- Modals -->
     <!-- Task Modal -->
     <div id="taskModal" class="modal">
         <div class="modal-content">
@@ -576,7 +710,7 @@
         </div>
     </div>
 
-    <!-- Project Save Modal - Enhanced with naming choice -->
+    <!-- Project Save Modal -->
     <div id="saveProjectModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -732,119 +866,8 @@
             });
         }
         
-        // Add dropdown menu styles
-        const style = document.createElement('style');
-        style.textContent = `
-            .saved-projects-dropdown {
-                position: relative;
-            }
-            
-            .dropdown-menu {
-                position: absolute;
-                top: 100%;
-                left: 0;
-                background: var(--color-surface);
-                border: 1px solid var(--color-border);
-                border-radius: var(--radius-md);
-                box-shadow: var(--shadow-xl);
-                min-width: 250px;
-                max-height: 400px;
-                overflow-y: auto;
-                z-index: 1000;
-                display: none;
-                margin-top: 0.5rem;
-            }
-            
-            .dropdown-menu.active {
-                display: block;
-            }
-            
-            .project-item {
-                padding: 0.75rem 1rem;
-                border-bottom: 1px solid var(--color-border-light);
-                cursor: pointer;
-                transition: background-color var(--transition-fast);
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-            }
-            
-            .project-item:hover {
-                background-color: var(--color-surface-light);
-            }
-            
-            .project-item:last-child {
-                border-bottom: none;
-            }
-            
-            .project-info {
-                flex: 1;
-            }
-            
-            .project-name {
-                font-weight: 500;
-                font-size: 0.875rem;
-                margin-bottom: 0.25rem;
-            }
-            
-            .project-meta {
-                font-size: 0.75rem;
-                color: var(--color-text-muted);
-                display: flex;
-                gap: 0.5rem;
-            }
-            
-            .saved-projects-list {
-                max-height: 400px;
-                overflow-y: auto;
-            }
-            
-            .project-name-display {
-                background: var(--color-surface-light);
-                padding: 0.375rem 0.75rem;
-                border-radius: var(--radius-md);
-                font-size: 0.875rem;
-                font-weight: 500;
-                border: 1px solid var(--color-border);
-                max-width: 200px;
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
-            }
-            
-            .btn-circle {
-                width: 3rem;
-                height: 3rem;
-                border-radius: 50%;
-                padding: 0;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-            }
-            
-            .question-dot {
-                width: 8px;
-                height: 8px;
-                border-radius: 50%;
-                background: var(--color-border);
-                cursor: pointer;
-                transition: all var(--transition-fast);
-            }
-            
-            .question-dot.active {
-                background: var(--color-primary);
-                transform: scale(1.2);
-            }
-            
-            .question-dot.answered {
-                background: var(--color-success);
-            }
-            
-            .question-dot.skipped {
-                background: var(--color-warning);
-            }
-        `;
-        document.head.appendChild(style);
+        // Removed duplicate style declaration that was causing the error
+        // All styles are now in the head section above
     </script>
 </body>
 </html>
