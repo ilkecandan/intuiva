@@ -3,24 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title data-i18n="app.title">Intuiva - Lean Project Management</title>
+    <title data-i18n="app.title">Intuiva - AI-Powered Project Management</title>
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/x-icon" href="icons/favicon.ico">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <meta name="theme-color" content="#0f172a">
-    <meta name="description" content="AI-powered Lean Project Management with Kanban">
+    <meta name="theme-color" content="#0a0a0f">
+    <meta name="description" content="AI-powered project management with smart task generation and Kanban boards">
 </head>
 <body>
     <!-- Navigation -->
     <nav class="navbar">
         <div class="nav-container">
-            <div class="nav-brand">
+            <a href="#" class="nav-brand" id="homeBtn">
                 <i class="fas fa-brain"></i>
                 <h1 data-i18n="nav.brand">Intuiva</h1>
-                <span class="tagline" data-i18n="nav.tagline">Lean Project Management</span>
-            </div>
+                <span class="tagline" data-i18n="nav.tagline">AI Project Management</span>
+            </a>
+            
             <div class="nav-actions">
+                <!-- Saved Projects Dropdown -->
+                <div class="saved-projects-dropdown">
+                    <button class="btn btn-outline btn-small" id="savedProjectsBtn">
+                        <i class="fas fa-folder-open"></i>
+                        <span data-i18n="nav.savedProjects">Saved Projects</span>
+                        <i class="fas fa-chevron-down" style="font-size: 0.75rem;"></i>
+                    </button>
+                    <div class="dropdown-menu" id="savedProjectsMenu">
+                        <!-- Will be populated by JavaScript -->
+                    </div>
+                </div>
+                
                 <!-- Language Selector -->
                 <div class="language-selector">
                     <select id="languageSelector" class="select-small">
@@ -63,39 +76,63 @@
                         <i class="fas fa-project-diagram"></i>
                     </div>
                     <h2 data-i18n="onboarding.title">Welcome to Intuiva</h2>
-                    <p class="subtitle" data-i18n="onboarding.subtitle">AI-powered Lean Project Management</p>
+                    <p class="subtitle" data-i18n="onboarding.subtitle">AI-powered Smart Project Management</p>
                     <p class="description" data-i18n="onboarding.description">
-                        Answer a few questions about your project, and we'll automatically create a Kanban board 
-                        with AI-generated tasks optimized for Lean workflow.
+                        Answer a few questions about your project, and we'll automatically create a complete Kanban board 
+                        with AI-generated tasks optimized for your workflow. Get actionable insights and professional project reports.
                     </p>
                 </div>
                 
                 <div class="onboarding-stats">
                     <div class="stat-card">
                         <i class="fas fa-bolt"></i>
-                        <h3 data-i18n="stats.fast">Fast Setup</h3>
-                        <p data-i18n="stats.fastDesc">Get started in minutes</p>
+                        <h3 data-i18n="stats.fast">Smart Setup</h3>
+                        <p data-i18n="stats.fastDesc">AI analyzes your goals</p>
                     </div>
                     <div class="stat-card">
                         <i class="fas fa-robot"></i>
-                        <h3 data-i18n="stats.ai">AI-Powered</h3>
-                        <p data-i18n="stats.aiDesc">Smart task generation</p>
+                        <h3 data-i18n="stats.ai">AI-Powered Tasks</h3>
+                        <p data-i18n="stats.aiDesc">Intelligent task generation</p>
                     </div>
                     <div class="stat-card">
                         <i class="fas fa-chart-line"></i>
-                        <h3 data-i18n="stats.lean">Lean Metrics</h3>
-                        <p data-i18n="stats.leanDesc">Track progress visually</p>
+                        <h3 data-i18n="stats.lean">Professional Reports</h3>
+                        <p data-i18n="stats.leanDesc">Get PDF project reports</p>
+                    </div>
+                    <div class="stat-card">
+                        <i class="fas fa-save"></i>
+                        <h3 data-i18n="stats.save">Auto-Save</h3>
+                        <p data-i18n="stats.saveDesc">Projects saved locally</p>
                     </div>
                 </div>
 
                 <div class="onboarding-actions">
-                    <button id="startBtn" class="btn-primary btn-large" data-i18n="button.start">
-                        <span>Start Project Setup</span>
+                    <button id="startBtn" class="btn btn-primary btn-large" data-i18n="button.start">
+                        <span>Start New Project</span>
                         <i class="fas fa-arrow-right"></i>
                     </button>
-                    <button id="skipBtn" class="btn-secondary" data-i18n="button.skip">
-                        Skip to Empty Board
+                    <button id="loadProjectBtn" class="btn btn-secondary" data-i18n="button.loadProject">
+                        <i class="fas fa-folder-open"></i>
+                        <span>Load Saved Project</span>
                     </button>
+                </div>
+                
+                <!-- Local Storage Warning -->
+                <div class="local-storage-warning">
+                    <h4><i class="fas fa-exclamation-triangle"></i> <span data-i18n="storage.warning">Important: Local Storage Notice</span></h4>
+                    <p data-i18n="storage.description">
+                        Your projects are automatically saved to your browser's local storage. This means:
+                    </p>
+                    <ul style="color: var(--color-text-muted); font-size: 0.8125rem; margin-left: 1.5rem; line-height: 1.5; margin-bottom: 0.75rem;">
+                        <li data-i18n="storage.point1">Projects are only accessible on this device</li>
+                        <li data-i18n="storage.point2">Clearing browser data will delete your projects</li>
+                        <li data-i18n="storage.point3">Use "Export Project" to create backups</li>
+                        <li data-i18n="storage.point4">Projects sync automatically as you work</li>
+                    </ul>
+                    <a href="https://www.linkedin.com/in/ilkecandan/" target="_blank" rel="noopener noreferrer">
+                        <i class="fas fa-user"></i>
+                        <span>Created by Ilke Candan Bengi</span>
+                    </a>
                 </div>
             </div>
         </section>
@@ -128,11 +165,11 @@
                             <textarea 
                                 id="answerInput" 
                                 placeholder="Type your answer here... (Press Enter for new line, Ctrl+Enter to submit)"
-                                rows="6"
+                                rows="4"
                             ></textarea>
                             <div class="answer-actions">
                                 <span class="char-count" id="charCount">0/500</span>
-                                <button id="clearBtn" class="btn-text">
+                                <button id="clearBtn" class="btn btn-text">
                                     <i class="fas fa-times"></i> <span data-i18n="button.clear">Clear</span>
                                 </button>
                             </div>
@@ -140,26 +177,26 @@
 
                         <div class="question-note">
                             <i class="fas fa-lightbulb"></i>
-                            <span data-i18n="question.tip">Tip: Be specific and concise. Your answers will help generate relevant tasks.</span>
+                            <span data-i18n="question.tip">💡 Tip: Be specific. Your answers will help generate relevant tasks and create a comprehensive project report.</span>
                         </div>
                     </div>
                 </div>
 
                 <div class="questionnaire-actions">
-                    <button id="prevBtn" class="btn-secondary">
+                    <button id="prevBtn" class="btn btn-secondary">
                         <i class="fas fa-arrow-left"></i> <span data-i18n="button.prev">Previous</span>
                     </button>
                     
                     <div class="middle-actions">
-                        <button id="skipQuestionBtn" class="btn-outline" data-i18n="button.skipQuestion">
+                        <button id="skipQuestionBtn" class="btn btn-outline" data-i18n="button.skipQuestion">
                             Skip Question
                         </button>
-                        <button id="notAnswerBtn" class="btn-outline" data-i18n="button.notAnswer">
+                        <button id="notAnswerBtn" class="btn btn-outline" data-i18n="button.notAnswer">
                             Not Applicable
                         </button>
                     </div>
                     
-                    <button id="nextBtn" class="btn-primary">
+                    <button id="nextBtn" class="btn btn-primary">
                         <span data-i18n="button.next">Next</span> <i class="fas fa-arrow-right"></i>
                     </button>
                 </div>
@@ -170,7 +207,7 @@
         <section id="kanbanBoard" class="screen">
             <div class="kanban-header">
                 <div class="board-info">
-                    <h2 data-i18n="board.title">Project Board</h2>
+                    <h2 id="boardTitle" data-i18n="board.title">Project Board</h2>
                     <div class="board-stats">
                         <span class="stat">
                             <i class="fas fa-tasks"></i>
@@ -184,24 +221,28 @@
                             <i class="fas fa-clock"></i>
                             <span id="wipTasks">0</span> <span data-i18n="board.inProgress">In Progress</span>
                         </span>
+                        <span class="stat">
+                            <i class="fas fa-save"></i>
+                            <span id="lastSaved">Just now</span>
+                        </span>
                     </div>
                 </div>
                 
                 <div class="board-actions">
-                    <button id="backToQuestionsBtn" class="btn-outline">
+                    <button id="backToQuestionsBtn" class="btn btn-outline">
                         <i class="fas fa-arrow-left"></i> <span data-i18n="button.backToQuestions">Back to Questions</span>
                     </button>
-                    <button id="addTaskBtn" class="btn-primary">
+                    <button id="addTaskBtn" class="btn btn-primary">
                         <i class="fas fa-plus"></i> <span data-i18n="button.addTask">Add Task</span>
                     </button>
-                    <button id="clearAllBtn" class="btn-outline">
+                    <button id="clearAllBtn" class="btn btn-outline">
                         <i class="fas fa-trash"></i> <span data-i18n="button.clearAll">Clear All</span>
                     </button>
-                    <button id="regenerateBtn" class="btn-outline">
+                    <button id="regenerateBtn" class="btn btn-outline">
                         <i class="fas fa-robot"></i> <span data-i18n="button.regenerate">Regenerate Tasks</span>
                     </button>
-                    <button id="exportBtn" class="btn-outline">
-                        <i class="fas fa-download"></i> <span data-i18n="button.export">Export</span>
+                    <button id="saveProjectBtn" class="btn btn-outline">
+                        <i class="fas fa-save"></i> <span data-i18n="button.saveProject">Save Project</span>
                     </button>
                 </div>
             </div>
@@ -253,6 +294,33 @@
                     </div>
                 </div>
             </div>
+            
+            <!-- Project Report Section -->
+            <div class="project-report">
+                <div class="project-report-header">
+                    <h3><i class="fas fa-file-alt"></i> <span data-i18n="report.title">AI Project Report</span></h3>
+                    <div class="report-actions">
+                        <button id="generateReportBtn" class="btn btn-primary">
+                            <i class="fas fa-robot"></i> <span data-i18n="button.generateReport">Generate Report</span>
+                        </button>
+                        <button id="downloadPdfBtn" class="btn btn-outline" disabled>
+                            <i class="fas fa-download"></i> <span data-i18n="button.downloadPdf">Download PDF</span>
+                        </button>
+                        <button id="exportProjectBtn" class="btn btn-outline">
+                            <i class="fas fa-file-export"></i> <span data-i18n="button.exportProject">Export Project</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="report-content" id="reportContent">
+                    <div class="report-placeholder">
+                        <i class="fas fa-file-alt"></i>
+                        <p data-i18n="report.placeholder">Generate an AI-powered project report based on your answers. Get strategic insights, timelines, and recommendations.</p>
+                        <button id="generateReportPlaceholderBtn" class="btn btn-primary" style="margin-top: 1rem;">
+                            <i class="fas fa-robot"></i> Generate Report
+                        </button>
+                    </div>
+                </div>
+            </div>
         </section>
     </main>
 
@@ -268,12 +336,12 @@
             <div class="modal-body">
                 <form id="taskForm">
                     <div class="form-group">
-                        <label for="taskTitle" data-i18n="form.taskTitle">Task Title</label>
-                        <input type="text" id="taskTitle" required>
+                        <label for="taskTitle" data-i18n="form.taskTitle">Task Title *</label>
+                        <input type="text" id="taskTitle" required placeholder="Enter task title">
                     </div>
                     <div class="form-group">
                         <label for="taskDescription" data-i18n="form.description">Description</label>
-                        <textarea id="taskDescription" rows="4"></textarea>
+                        <textarea id="taskDescription" rows="3" placeholder="Describe the task details..."></textarea>
                     </div>
                     <div class="form-row">
                         <div class="form-group">
@@ -296,13 +364,81 @@
                     </div>
                     <div class="form-group">
                         <label for="taskTags" data-i18n="form.tags">Tags (comma-separated)</label>
-                        <input type="text" id="taskTags">
+                        <input type="text" id="taskTags" placeholder="e.g., design, development, testing">
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn-secondary close-modal" data-i18n="button.cancel">Cancel</button>
-                <button type="submit" form="taskForm" class="btn-primary" data-i18n="button.save">Save Task</button>
+                <button type="button" class="btn btn-secondary close-modal" data-i18n="button.cancel">Cancel</button>
+                <button type="submit" form="taskForm" class="btn btn-primary" data-i18n="button.save">Save Task</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Project Save Modal -->
+    <div id="saveProjectModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 data-i18n="modal.saveProject">Save Project</h3>
+                <button class="btn-icon close-modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="saveProjectForm">
+                    <div class="form-group">
+                        <label for="projectName" data-i18n="form.projectName">Project Name *</label>
+                        <input type="text" id="projectName" required placeholder="Enter project name">
+                    </div>
+                    <div class="form-group">
+                        <label for="projectDescription" data-i18n="form.description">Description</label>
+                        <textarea id="projectDescription" rows="3" placeholder="Describe your project..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="projectTags" data-i18n="form.tags">Tags (comma-separated)</label>
+                        <input type="text" id="projectTags" placeholder="e.g., marketing, q4, urgent">
+                    </div>
+                    <div class="form-group">
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="checkbox" id="autoSave" checked>
+                            <label for="autoSave" style="margin-bottom: 0;" data-i18n="form.autoSave">Enable auto-save</label>
+                        </div>
+                        <small style="color: var(--color-text-muted); font-size: 0.75rem; margin-top: 0.25rem;" data-i18n="form.autoSaveHelp">
+                            Project will be saved automatically every 30 seconds
+                        </small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary close-modal" data-i18n="button.cancel">Cancel</button>
+                <button type="submit" form="saveProjectForm" class="btn btn-primary" data-i18n="button.save">Save Project</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load Project Modal -->
+    <div id="loadProjectModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 data-i18n="modal.loadProject">Load Saved Project</h3>
+                <button class="btn-icon close-modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="saved-projects-list" id="savedProjectsList">
+                    <!-- Projects will be loaded here -->
+                </div>
+                <div class="empty-state" id="noProjectsMessage" style="display: none;">
+                    <i class="fas fa-folder-open"></i>
+                    <p data-i18n="project.noProjects">No saved projects found</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary close-modal" data-i18n="button.cancel">Cancel</button>
+                <button id="importProjectBtn" class="btn btn-outline">
+                    <i class="fas fa-file-import"></i> <span data-i18n="button.import">Import Project</span>
+                </button>
             </div>
         </div>
     </div>
@@ -318,21 +454,45 @@
             </div>
             <div class="modal-body">
                 <div class="help-section">
-                    <h4><i class="fas fa-question-circle"></i> <span data-i18n="help.gettingStarted">Getting Started</span></h4>
-                    <p data-i18n="help.gettingStartedDesc">Answer the questionnaire to let AI generate relevant tasks for your project. You can skip questions or proceed directly to an empty board.</p>
+                    <h4><i class="fas fa-rocket"></i> <span data-i18n="help.gettingStarted">Getting Started</span></h4>
+                    <p data-i18n="help.gettingStartedDesc">Answer the questionnaire to let AI analyze your project goals and generate relevant tasks. Your work is automatically saved locally.</p>
                 </div>
                 <div class="help-section">
-                    <h4><i class="fas fa-columns"></i> <span data-i18n="help.kanbanBoard">Kanban Board</span></h4>
+                    <h4><i class="fas fa-columns"></i> <span data-i18n="help.kanbanBoard">Kanban Board Features</span></h4>
                     <ul>
-                        <li><strong data-i18n="help.dragDrop">Drag & Drop:</strong> <span data-i18n="help.dragDropDesc">Move tasks between columns</span></li>
-                        <li><strong data-i18n="help.click">Click:</strong> <span data-i18n="help.clickDesc">View and edit task details</span></li>
-                        <li><strong data-i18n="help.delete">Delete:</strong> <span data-i18n="help.deleteDesc">Click the trash icon on a task</span></li>
-                        <li><strong data-i18n="help.add">Add:</strong> <span data-i18n="help.addDesc">Use the "+ Add Task" button in each column</span></li>
+                        <li><strong data-i18n="help.dragDrop">Drag & Drop:</strong> <span data-i18n="help.dragDropDesc">Move tasks between columns to update status</span></li>
+                        <li><strong data-i18n="help.click">Task Actions:</strong> <span data-i18n="help.clickDesc">Click task title to edit, hover for action buttons</span></li>
+                        <li><strong data-i18n="help.priority">Priority Colors:</strong> <span data-i18n="help.priorityDesc">Color-coded priorities help focus</span></li>
+                        <li><strong data-i18n="help.autoSave">Auto-Save:</strong> <span data-i18n="help.autoSaveDesc">Projects save automatically every 30 seconds</span></li>
                     </ul>
                 </div>
                 <div class="help-section">
                     <h4><i class="fas fa-robot"></i> <span data-i18n="help.aiFeatures">AI Features</span></h4>
-                    <p data-i18n="help.aiFeaturesDesc">The AI analyzes your answers to generate relevant tasks. Use the "Regenerate Tasks" button to create new tasks based on your responses.</p>
+                    <ul>
+                        <li><strong data-i18n="help.aiTasks">Smart Tasks:</strong> <span data-i18n="help.aiTasksDesc">AI generates tasks based on your answers</span></li>
+                        <li><strong data-i18n="help.aiReport">Project Reports:</strong> <span data-i18n="help.aiReportDesc">Generate 1-page professional reports</span></li>
+                        <li><strong data-i18n="help.aiRegenerate">Regenerate:</strong> <span data-i18n="help.aiRegenerateDesc">Get new task suggestions anytime</span></li>
+                        <li><strong data-i18n="help.aiPdf">PDF Export:</strong> <span data-i18n="help.aiPdfDesc">Download project reports as PDF</span></li>
+                    </ul>
+                </div>
+                <div class="help-section">
+                    <h4><i class="fas fa-save"></i> <span data-i18n="help.storage">Data Storage</span></h4>
+                    <ul>
+                        <li><strong data-i18n="help.localStorage">Local Storage:</strong> <span data-i18n="help.localStorageDesc">Projects save to your browser</span></li>
+                        <li><strong data-i18n="help.export">Export/Import:</strong> <span data-i18n="help.exportDesc">Backup projects as JSON files</span></li>
+                        <li><strong data-i18n="help.clearWarning">Warning:</strong> <span data-i18n="help.clearWarningDesc">Clearing browser data deletes projects</span></li>
+                        <li><strong data-i18n="help.multipleProjects">Multiple Projects:</strong> <span data-i18n="help.multipleProjectsDesc">Save and switch between projects</span></li>
+                    </ul>
+                </div>
+                <div class="help-section">
+                    <h4><i class="fas fa-lightbulb"></i> <span data-i18n="help.tips">Pro Tips</span></h4>
+                    <ul>
+                        <li data-i18n="help.tip1">Use detailed answers for better AI analysis</li>
+                        <li data-i18n="help.tip2">Export projects regularly for backup</li>
+                        <li data-i18n="help.tip3">Use tags to organize tasks</li>
+                        <li data-i18n="help.tip4">Generate reports before meetings</li>
+                        <li data-i18n="help.tip5">Try both light/dark themes for comfort</li>
+                    </ul>
                 </div>
             </div>
         </div>
@@ -340,6 +500,7 @@
 
     <!-- Notification Toast -->
     <div id="toast" class="toast">
+        <i class="fas fa-info-circle"></i>
         <span id="toastMessage">Notification message</span>
     </div>
 
@@ -361,6 +522,75 @@
                     });
             });
         }
+        
+        // Add dropdown menu styles
+        const style = document.createElement('style');
+        style.textContent = `
+            .saved-projects-dropdown {
+                position: relative;
+            }
+            
+            .dropdown-menu {
+                position: absolute;
+                top: 100%;
+                left: 0;
+                background: var(--color-surface);
+                border: 1px solid var(--color-border);
+                border-radius: var(--radius-md);
+                box-shadow: var(--shadow-xl);
+                min-width: 250px;
+                max-height: 400px;
+                overflow-y: auto;
+                z-index: 1000;
+                display: none;
+                margin-top: 0.5rem;
+            }
+            
+            .dropdown-menu.active {
+                display: block;
+            }
+            
+            .project-item {
+                padding: 0.75rem 1rem;
+                border-bottom: 1px solid var(--color-border-light);
+                cursor: pointer;
+                transition: background-color var(--transition-fast);
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+            
+            .project-item:hover {
+                background-color: var(--color-surface-light);
+            }
+            
+            .project-item:last-child {
+                border-bottom: none;
+            }
+            
+            .project-info {
+                flex: 1;
+            }
+            
+            .project-name {
+                font-weight: 500;
+                font-size: 0.875rem;
+                margin-bottom: 0.25rem;
+            }
+            
+            .project-meta {
+                font-size: 0.75rem;
+                color: var(--color-text-muted);
+                display: flex;
+                gap: 0.5rem;
+            }
+            
+            .saved-projects-list {
+                max-height: 400px;
+                overflow-y: auto;
+            }
+        `;
+        document.head.appendChild(style);
     </script>
 </body>
 </html>
