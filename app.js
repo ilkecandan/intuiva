@@ -55,7 +55,7 @@ class IntuivaApp {
         this.initProjectManagement();
         
         this.showScreen('onboarding');
-        this.loadSavedProjects();
+    this.savedProjects = this.getSavedProjects(); // Fixed: use getSavedProjects() instead
         this.updateSavedProjectsDropdown();
         
         // Apply language after everything is initialized
