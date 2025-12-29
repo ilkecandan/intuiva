@@ -12,6 +12,7 @@ class IntuivaApp {
         this.savedProjects = [];
         this.autoSaveInterval = null;
         this.autoSaveEnabled = true;
+        this.isCompactView = false;
         
         this.init();
     }
@@ -27,8 +28,9 @@ class IntuivaApp {
     }
     
     t(key, params = {}) {
-        let translation = window.TRANSLATIONS[this.currentLanguage]?.[key] || 
-                        window.TRANSLATIONS['en']?.[key] || 
+        // Fallback to English if translation not found
+        let translation = window.TRANSLATIONS?.[this.currentLanguage]?.[key] || 
+                        window.TRANSLATIONS?.['en']?.[key] || 
                         key;
         
         Object.keys(params).forEach(param => {
@@ -39,29 +41,30 @@ class IntuivaApp {
     }
 
     init() {
+        // Initialize screens
         this.screens = {
             onboarding: document.getElementById('onboarding'),
             questionnaire: document.getElementById('questionnaire'),
             kanbanBoard: document.getElementById('kanbanBoard')
         };
         
+        // Initialize all components
         this.initButtons();
         this.initNavigation();
         this.initQuestionnaire();
         this.initModals();
-        this.initDragAndDrop();
         this.initTheme();
-        this.initCharCounter();
         this.initProjectManagement();
+        this.initKeyboardShortcuts();
+        this.initCompactView();
         
         this.showScreen('onboarding');
-    this.savedProjects = this.getSavedProjects(); // Fixed: use getSavedProjects() instead
+        this.savedProjects = this.getSavedProjects();
         this.updateSavedProjectsDropdown();
         
         // Apply language after everything is initialized
         setTimeout(() => {
             this.applyLanguage();
-            // Update language selector
             const langSelector = document.getElementById('languageSelector');
             if (langSelector) {
                 langSelector.value = this.currentLanguage;
@@ -72,58 +75,66 @@ class IntuivaApp {
     }
 
     applyLanguage() {
-        // Update all translatable elements
-        document.querySelectorAll('[data-i18n]').forEach(element => {
-            const key = element.getAttribute('data-i18n');
-            if (key) {
-                const params = {};
-                element.getAttributeNames().forEach(attr => {
-                    if (attr.startsWith('data-i18n-')) {
-                        const paramName = attr.replace('data-i18n-', '');
-                        params[paramName] = element.getAttribute(attr);
+        // Wait for DOM to be ready
+        setTimeout(() => {
+            // Update all translatable elements
+            document.querySelectorAll('[data-i18n]').forEach(element => {
+                const key = element.getAttribute('data-i18n');
+                if (key) {
+                    try {
+                        const params = {};
+                        element.getAttributeNames().forEach(attr => {
+                            if (attr.startsWith('data-i18n-')) {
+                                const paramName = attr.replace('data-i18n-', '');
+                                params[paramName] = element.getAttribute(attr);
+                            }
+                        });
+                        const text = this.t(key, params);
+                        if (text) element.textContent = text;
+                    } catch (error) {
+                        console.warn('Translation failed for key:', key, error);
                     }
-                });
-                element.textContent = this.t(key, params);
+                }
+            });
+            
+            // Update placeholders
+            document.querySelectorAll('[data-i18n-placeholder]').forEach(element => {
+                const key = element.getAttribute('data-i18n-placeholder');
+                if (key) {
+                    element.placeholder = this.t(key);
+                }
+            });
+            
+            // Update titles
+            document.querySelectorAll('[data-i18n-title]').forEach(element => {
+                const key = element.getAttribute('data-i18n-title');
+                if (key) {
+                    element.title = this.t(key);
+                }
+            });
+            
+            // Update page title
+            document.title = this.t('app.title');
+            
+            // Update language selector
+            const langSelector = document.getElementById('languageSelector');
+            if (langSelector) {
+                langSelector.value = this.currentLanguage;
             }
-        });
-        
-        // Update placeholders
-        document.querySelectorAll('[data-i18n-placeholder]').forEach(element => {
-            const key = element.getAttribute('data-i18n-placeholder');
-            if (key) {
-                element.placeholder = this.t(key);
+            
+            // Update question if on questionnaire screen
+            if (this.currentScreen === 'questionnaire' && this.questions) {
+                this.loadQuestion(this.currentQuestionIndex);
             }
-        });
-        
-        // Update titles
-        document.querySelectorAll('[data-i18n-title]').forEach(element => {
-            const key = element.getAttribute('data-i18n-title');
-            if (key) {
-                element.title = this.t(key);
+            
+            // Update kanban board if it exists
+            if (this.kanbanBoard) {
+                this.kanbanBoard.renderTasks();
             }
-        });
-        
-        // Update page title
-        document.title = this.t('app.title');
-        
-        // Update language selector
-        const langSelector = document.getElementById('languageSelector');
-        if (langSelector) {
-            langSelector.value = this.currentLanguage;
-        }
-        
-        // Update question if on questionnaire screen
-        if (this.currentScreen === 'questionnaire' && this.questions) {
-            this.loadQuestion(this.currentQuestionIndex);
-        }
-        
-        // Update kanban board if it exists
-        if (this.kanbanBoard) {
-            this.kanbanBoard.renderTasks();
-        }
-        
-        // Update stats
-        this.updateStats();
+            
+            // Update stats
+            this.updateStats();
+        }, 0);
     }
     
     initProjectManagement() {
@@ -146,29 +157,42 @@ class IntuivaApp {
     
     initButtons() {
         // Start button
-        document.getElementById('startBtn').addEventListener('click', () => {
-            this.createNewProject();
-        });
+        const startBtn = document.getElementById('startBtn');
+        if (startBtn) {
+            startBtn.addEventListener('click', () => {
+                this.createNewProject();
+            });
+        }
         
         // Load project button
-        document.getElementById('loadProjectBtn').addEventListener('click', () => {
-            this.showLoadProjectModal();
-        });
+        const loadProjectBtn = document.getElementById('loadProjectBtn');
+        if (loadProjectBtn) {
+            loadProjectBtn.addEventListener('click', () => {
+                this.showLoadProjectModal();
+            });
+        }
         
         // Home button
-        document.getElementById('homeBtn').addEventListener('click', (e) => {
-            e.preventDefault();
-            this.navigateTo('onboarding');
-        });
+        const homeBtn = document.getElementById('homeBtn');
+        if (homeBtn) {
+            homeBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.navigateTo('onboarding');
+            });
+        }
         
         // Saved projects dropdown
-        document.getElementById('savedProjectsBtn').addEventListener('click', () => {
-            this.toggleSavedProjectsDropdown();
-        });
+        const savedProjectsBtn = document.getElementById('savedProjectsBtn');
+        if (savedProjectsBtn) {
+            savedProjectsBtn.addEventListener('click', () => {
+                this.toggleSavedProjectsDropdown();
+            });
+        }
         
         // Clear All button
-        if (document.getElementById('clearAllBtn')) {
-            document.getElementById('clearAllBtn').addEventListener('click', () => {
+        const clearAllBtn = document.getElementById('clearAllBtn');
+        if (clearAllBtn) {
+            clearAllBtn.addEventListener('click', () => {
                 if (confirm(this.t('confirm.clearAll'))) {
                     this.tasks = [];
                     if (this.kanbanBoard) {
@@ -182,24 +206,68 @@ class IntuivaApp {
         }
         
         // Navigation buttons
-        document.getElementById('prevBtn').addEventListener('click', () => this.prevQuestion());
-        document.getElementById('nextBtn').addEventListener('click', () => this.nextQuestion());
+        const prevBtn = document.getElementById('prevBtn');
+        if (prevBtn) {
+            prevBtn.addEventListener('click', () => this.prevQuestion());
+        }
+        
+        const nextBtn = document.getElementById('nextBtn');
+        if (nextBtn) {
+            nextBtn.addEventListener('click', () => this.nextQuestion());
+        }
         
         // Question action buttons
-        document.getElementById('skipQuestionBtn').addEventListener('click', () => this.skipQuestion());
-        document.getElementById('notAnswerBtn').addEventListener('click', () => this.markAsNotApplicable());
-        document.getElementById('clearBtn').addEventListener('click', () => this.clearAnswer());
+        const skipQuestionBtn = document.getElementById('skipQuestionBtn');
+        if (skipQuestionBtn) {
+            skipQuestionBtn.addEventListener('click', () => this.skipQuestion());
+        }
+        
+        const notAnswerBtn = document.getElementById('notAnswerBtn');
+        if (notAnswerBtn) {
+            notAnswerBtn.addEventListener('click', () => this.markAsNotApplicable());
+        }
+        
+        const clearBtn = document.getElementById('clearBtn');
+        if (clearBtn) {
+            clearBtn.addEventListener('click', () => this.clearAnswer());
+        }
         
         // Board action buttons
-        document.getElementById('addTaskBtn').addEventListener('click', () => this.openTaskModal());
-        document.getElementById('regenerateBtn').addEventListener('click', () => this.regenerateTasks());
-        document.getElementById('saveProjectBtn').addEventListener('click', () => this.showSaveProjectModal());
-        document.getElementById('exportProjectBtn').addEventListener('click', () => this.exportProject());
+        const addTaskBtn = document.getElementById('addTaskBtn');
+        if (addTaskBtn) {
+            addTaskBtn.addEventListener('click', () => this.openTaskModal());
+        }
+        
+        const regenerateBtn = document.getElementById('regenerateBtn');
+        if (regenerateBtn) {
+            regenerateBtn.addEventListener('click', () => this.regenerateTasks());
+        }
+        
+        const saveProjectBtn = document.getElementById('saveProjectBtn');
+        if (saveProjectBtn) {
+            saveProjectBtn.addEventListener('click', () => this.showSaveProjectModal());
+        }
+        
+        const exportProjectBtn = document.getElementById('exportProjectBtn');
+        if (exportProjectBtn) {
+            exportProjectBtn.addEventListener('click', () => this.exportProject());
+        }
         
         // Report buttons
-        document.getElementById('generateReportBtn').addEventListener('click', () => this.generateProjectReport());
-        document.getElementById('generateReportPlaceholderBtn').addEventListener('click', () => this.generateProjectReport());
-        document.getElementById('downloadPdfBtn').addEventListener('click', () => this.downloadPdfReport());
+        const generateReportBtn = document.getElementById('generateReportBtn');
+        if (generateReportBtn) {
+            generateReportBtn.addEventListener('click', () => this.generateProjectReport());
+        }
+        
+        const generateReportPlaceholderBtn = document.getElementById('generateReportPlaceholderBtn');
+        if (generateReportPlaceholderBtn) {
+            generateReportPlaceholderBtn.addEventListener('click', () => this.generateProjectReport());
+        }
+        
+        const downloadPdfBtn = document.getElementById('downloadPdfBtn');
+        if (downloadPdfBtn) {
+            downloadPdfBtn.addEventListener('click', () => this.downloadPdfReport());
+        }
         
         // Add task buttons in columns
         document.querySelectorAll('.btn-add-task').forEach(btn => {
@@ -210,12 +278,18 @@ class IntuivaApp {
         });
         
         // Theme toggle
-        document.getElementById('themeToggle').addEventListener('click', () => this.toggleTheme());
+        const themeToggle = document.getElementById('themeToggle');
+        if (themeToggle) {
+            themeToggle.addEventListener('click', () => this.toggleTheme());
+        }
         
         // Help button
-        document.getElementById('helpBtn').addEventListener('click', () => {
-            document.getElementById('helpModal').classList.add('active');
-        });
+        const helpBtn = document.getElementById('helpBtn');
+        if (helpBtn) {
+            helpBtn.addEventListener('click', () => {
+                document.getElementById('helpModal')?.classList.add('active');
+            });
+        }
         
         // Language selector
         const langSelector = document.getElementById('languageSelector');
@@ -226,9 +300,29 @@ class IntuivaApp {
         }
         
         // Back to questions button
-        document.getElementById('backToQuestionsBtn').addEventListener('click', () => {
-            this.navigateTo('questionnaire');
-        });
+        const backToQuestionsBtn = document.getElementById('backToQuestionsBtn');
+        if (backToQuestionsBtn) {
+            backToQuestionsBtn.addEventListener('click', () => {
+                this.navigateTo('questionnaire');
+            });
+        }
+        
+        // Compact view toggle
+        const compactToggle = document.getElementById('compactToggle');
+        if (compactToggle) {
+            compactToggle.addEventListener('click', () => this.toggleCompactView());
+        }
+        
+        // Jump to start/end buttons
+        const jumpToStartBtn = document.getElementById('jumpToStartBtn');
+        if (jumpToStartBtn) {
+            jumpToStartBtn.addEventListener('click', () => this.jumpToQuestion(0));
+        }
+        
+        const jumpToEndBtn = document.getElementById('jumpToEndBtn');
+        if (jumpToEndBtn) {
+            jumpToEndBtn.addEventListener('click', () => this.jumpToQuestion(this.questions.length - 1));
+        }
     }
 
     initNavigation() {
@@ -243,8 +337,12 @@ class IntuivaApp {
     }
 
     navigateTo(screenName) {
+        // Save current answer before navigating away
         if (this.currentScreen === 'questionnaire') {
-            this.saveAnswer(document.getElementById('answerInput').value);
+            const answerInput = document.getElementById('answerInput');
+            if (answerInput) {
+                this.saveAnswer(answerInput.value);
+            }
         }
         
         this.showScreen(screenName);
@@ -256,14 +354,18 @@ class IntuivaApp {
         }
         
         if (screenName === 'kanbanBoard') {
-            if (!this.kanbanBoard) {
-                this.kanbanBoard = new KanbanBoard(this.tasks);
-            } else {
-                this.kanbanBoard.tasks = this.tasks;
-                this.kanbanBoard.renderTasks();
-            }
+            this.initializeKanbanBoard();
             this.updateStats();
             this.updateLastSavedTime();
+        }
+    }
+
+    initializeKanbanBoard() {
+        if (!this.kanbanBoard) {
+            this.kanbanBoard = new KanbanBoard(this.tasks);
+        } else {
+            this.kanbanBoard.tasks = this.tasks;
+            this.kanbanBoard.renderTasks();
         }
     }
 
@@ -278,6 +380,7 @@ class IntuivaApp {
     }
 
     initQuestionnaire() {
+        // Load questions based on language
         if (window.getQuestions) {
             this.questions = window.getQuestions(this.currentLanguage);
         } else if (window.QUESTIONS && window.QUESTIONS[this.currentLanguage]) {
@@ -286,24 +389,31 @@ class IntuivaApp {
             this.questions = window.QUESTIONS;
         } else {
             this.questions = [];
+            console.error('No questions found!');
         }
         
         this.totalQuestions = this.questions.length;
         
         const answerInput = document.getElementById('answerInput');
-        answerInput.addEventListener('input', (e) => {
-            this.saveAnswer(e.target.value);
-            this.updateCharCounter();
-        });
-        
-        answerInput.addEventListener('keydown', (e) => {
-            if (e.ctrlKey && e.key === 'Enter') {
-                e.preventDefault();
-                this.nextQuestion();
-            } else if (e.key === 'Escape') {
-                this.clearAnswer();
-            }
-        });
+        if (answerInput) {
+            answerInput.addEventListener('input', (e) => {
+                this.saveAnswer(e.target.value);
+                this.updateCharCounter();
+            });
+            
+            // FIX: Enter key navigation - only navigate on Enter without Shift/Ctrl
+            answerInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey) {
+                    e.preventDefault();
+                    this.nextQuestion();
+                } else if (e.ctrlKey && e.key === 'Enter') {
+                    e.preventDefault();
+                    this.nextQuestion();
+                } else if (e.key === 'Escape') {
+                    this.clearAnswer();
+                }
+            });
+        }
     }
 
     initModals() {
@@ -313,46 +423,105 @@ class IntuivaApp {
         this.saveProjectForm = document.getElementById('saveProjectForm');
         this.loadProjectModal = document.getElementById('loadProjectModal');
         
+        // Close modal buttons
         document.querySelectorAll('.close-modal').forEach(btn => {
             btn.addEventListener('click', () => {
                 document.querySelectorAll('.modal').forEach(modal => {
                     modal.classList.remove('active');
                 });
-                this.taskForm.reset();
-                this.saveProjectForm.reset();
+                if (this.taskForm) this.taskForm.reset();
+                if (this.saveProjectForm) this.saveProjectForm.reset();
             });
         });
         
+        // Close modal on outside click
         document.querySelectorAll('.modal').forEach(modal => {
             modal.addEventListener('click', (e) => {
                 if (e.target === modal) {
                     modal.classList.remove('active');
-                    this.taskForm.reset();
-                    this.saveProjectForm.reset();
+                    if (this.taskForm) this.taskForm.reset();
+                    if (this.saveProjectForm) this.saveProjectForm.reset();
                 }
             });
         });
         
-        this.taskForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.saveTask();
-        });
+        // Task form submission
+        if (this.taskForm) {
+            this.taskForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.saveTask();
+            });
+        }
         
-        this.saveProjectForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.saveProjectAs();
-        });
+        // Save project form submission
+        if (this.saveProjectForm) {
+            this.saveProjectForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.saveProjectAs();
+            });
+        }
         
         // Import project button
-        document.getElementById('importProjectBtn').addEventListener('click', () => {
-            this.importProject();
-        });
+        const importProjectBtn = document.getElementById('importProjectBtn');
+        if (importProjectBtn) {
+            importProjectBtn.addEventListener('click', () => {
+                this.importProject();
+            });
+        }
         
-        this.helpModal = document.getElementById('helpModal');
+        // Report toggle
+        const reportToggle = document.getElementById('reportToggle');
+        if (reportToggle) {
+            reportToggle.addEventListener('click', () => {
+                const reportContent = document.getElementById('reportContent');
+                const icon = document.getElementById('reportToggleIcon');
+                if (reportContent) {
+                    reportContent.classList.toggle('collapsed');
+                    icon.classList.toggle('fa-chevron-down');
+                    icon.classList.toggle('fa-chevron-up');
+                }
+            });
+        }
     }
     
-    initDragAndDrop() {
-        // This will be initialized by the KanbanBoard class
+    initKeyboardShortcuts() {
+        document.addEventListener('keydown', (e) => {
+            // Don't trigger if user is typing in an input
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+                return;
+            }
+            
+            // Global shortcuts
+            switch(e.key) {
+                case 'n':
+                    if (e.ctrlKey) {
+                        e.preventDefault();
+                        this.createNewProject();
+                    }
+                    break;
+                case 's':
+                    if (e.ctrlKey) {
+                        e.preventDefault();
+                        this.saveProject();
+                    }
+                    break;
+                case 't':
+                    if (e.ctrlKey) {
+                        e.preventDefault();
+                        this.toggleTheme();
+                    }
+                    break;
+                case '?':
+                    e.preventDefault();
+                    document.getElementById('helpModal')?.classList.add('active');
+                    break;
+            }
+        });
+    }
+    
+    initCompactView() {
+        this.isCompactView = localStorage.getItem('intuiva-compact') === 'true';
+        this.applyCompactView();
     }
     
     initTheme() {
@@ -360,18 +529,18 @@ class IntuivaApp {
         document.documentElement.setAttribute('data-theme', savedTheme);
         
         const themeIcon = document.querySelector('#themeToggle i');
-        themeIcon.className = savedTheme === 'dark' ? 'fas fa-moon' : 'fas fa-sun';
-    }
-    
-    initCharCounter() {
-        this.updateCharCounter();
+        if (themeIcon) {
+            themeIcon.className = savedTheme === 'dark' ? 'fas fa-moon' : 'fas fa-sun';
+        }
     }
     
     showScreen(screenName) {
+        // Hide all screens
         Object.values(this.screens).forEach(screen => {
-            screen.classList.remove('active');
+            if (screen) screen.classList.remove('active');
         });
         
+        // Show selected screen
         if (this.screens[screenName]) {
             this.screens[screenName].classList.add('active');
             this.currentScreen = screenName;
@@ -379,13 +548,25 @@ class IntuivaApp {
         
         this.updateActiveNav();
         
-        if (screenName === 'kanbanBoard' && !this.kanbanBoard) {
-            this.kanbanBoard = new KanbanBoard(this.tasks);
+        // Show/hide project name display
+        const projectNameDisplay = document.getElementById('projectNameDisplay');
+        if (projectNameDisplay) {
+            projectNameDisplay.style.display = screenName === 'kanbanBoard' ? 'block' : 'none';
+        }
+        
+        // Focus on input if on questionnaire
+        if (screenName === 'questionnaire') {
+            setTimeout(() => {
+                const answerInput = document.getElementById('answerInput');
+                if (answerInput) answerInput.focus();
+            }, 100);
         }
     }
     
     loadQuestion(index) {
-        if (index < 0 || index >= this.totalQuestions) {
+        // Validate index
+        if (index < 0) index = 0;
+        if (index >= this.totalQuestions) {
             this.showKanbanBoard();
             return;
         }
@@ -393,56 +574,115 @@ class IntuivaApp {
         this.currentQuestionIndex = index;
         const question = this.questions[index];
         
-        if (!question) return;
+        if (!question) {
+            console.error('Question not found at index:', index);
+            return;
+        }
         
-        // Update UI elements
-        document.getElementById('questionNumber').textContent = this.t('question.number', { number: index + 1 });
-        document.getElementById('questionTitle').textContent = question.category || this.t('question.defaultTitle');
-        document.getElementById('questionText').textContent = question.text || this.t('question.defaultText');
-        document.getElementById('categoryTitle').textContent = question.category || this.t('question.category');
+        // Update UI elements - safely check each element
+        const questionNumber = document.getElementById('questionNumber');
+        const questionTitle = document.getElementById('questionTitle');
+        const questionText = document.getElementById('questionText');
+        const categoryTitle = document.getElementById('categoryTitle');
+        const progressFill = document.getElementById('progressFill');
+        const progressText = document.getElementById('progressText');
+        const answerInput = document.getElementById('answerInput');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const nextBtnText = nextBtn?.querySelector('span');
+        
+        if (questionNumber) questionNumber.textContent = this.t('question.number', { number: index + 1 });
+        if (questionTitle) questionTitle.textContent = question.category || this.t('question.defaultTitle');
+        if (questionText) questionText.textContent = question.text || this.t('question.defaultText');
+        if (categoryTitle) categoryTitle.textContent = question.category || this.t('question.category');
         
         // Update progress
-        const progress = ((index + 1) / this.totalQuestions) * 100;
-        document.getElementById('progressFill').style.width = `${progress}%`;
-        document.getElementById('progressText').textContent = this.t('question.progress', {
-            current: index + 1,
-            total: this.totalQuestions
-        });
+        if (progressFill && progressText) {
+            const progress = ((index + 1) / this.totalQuestions) * 100;
+            progressFill.style.width = `${progress}%`;
+            progressText.textContent = this.t('question.progress', {
+                current: index + 1,
+                total: this.totalQuestions
+            });
+        }
         
         // Load saved answer
-        const answerInput = document.getElementById('answerInput');
-        answerInput.value = this.answers[index] || '';
-        answerInput.focus();
+        if (answerInput) {
+            answerInput.value = this.answers[index] || '';
+            answerInput.focus();
+        }
         
         // Update character counter
         this.updateCharCounter();
         
         // Update button states
-        document.getElementById('prevBtn').disabled = index === 0;
+        if (prevBtn) prevBtn.disabled = index === 0;
         
         // Update next button text for last question
-        const nextBtn = document.getElementById('nextBtn');
-        const nextBtnText = nextBtn.querySelector('span');
-        if (index === this.totalQuestions - 1) {
-            nextBtnText.textContent = this.t('button.generateBoard');
-        } else {
-            nextBtnText.textContent = this.t('button.next');
+        if (nextBtnText) {
+            if (index === this.totalQuestions - 1) {
+                nextBtnText.textContent = this.t('button.generateBoard');
+            } else {
+                nextBtnText.textContent = this.t('button.next');
+            }
+        }
+        
+        // Update question dots
+        this.updateQuestionDots();
+    }
+    
+    updateQuestionDots() {
+        const dotsContainer = document.querySelector('.question-dots');
+        if (!dotsContainer) return;
+        
+        dotsContainer.innerHTML = '';
+        
+        for (let i = 0; i < this.totalQuestions; i++) {
+            const dot = document.createElement('div');
+            dot.className = 'question-dot';
+            
+            if (i === this.currentQuestionIndex) {
+                dot.classList.add('active');
+            } else if (this.answers[i]) {
+                if (this.answers[i] === '[Skipped]') {
+                    dot.classList.add('skipped');
+                } else if (this.answers[i] === '[Not Applicable]') {
+                    dot.classList.add('skipped');
+                } else {
+                    dot.classList.add('answered');
+                }
+            }
+            
+            dot.title = `Question ${i + 1}`;
+            dot.addEventListener('click', () => {
+                this.loadQuestion(i);
+            });
+            
+            dotsContainer.appendChild(dot);
         }
     }
     
     prevQuestion() {
         if (this.currentQuestionIndex > 0) {
+            this.saveCurrentAnswer();
             this.loadQuestion(this.currentQuestionIndex - 1);
         }
     }
     
     nextQuestion() {
-        this.saveAnswer(document.getElementById('answerInput').value);
+        this.saveCurrentAnswer();
         
         if (this.currentQuestionIndex < this.totalQuestions - 1) {
             this.loadQuestion(this.currentQuestionIndex + 1);
         } else {
             this.generateTasksFromAnswers();
+        }
+    }
+    
+    saveCurrentAnswer() {
+        const answerInput = document.getElementById('answerInput');
+        if (answerInput) {
+            this.saveAnswer(answerInput.value);
         }
     }
     
@@ -457,10 +697,13 @@ class IntuivaApp {
     }
     
     clearAnswer() {
-        document.getElementById('answerInput').value = '';
-        delete this.answers[this.currentQuestionIndex];
-        this.updateCharCounter();
-        document.getElementById('answerInput').focus();
+        const answerInput = document.getElementById('answerInput');
+        if (answerInput) {
+            answerInput.value = '';
+            delete this.answers[this.currentQuestionIndex];
+            this.updateCharCounter();
+            answerInput.focus();
+        }
     }
     
     saveAnswer(answer) {
@@ -477,37 +720,38 @@ class IntuivaApp {
     }
     
     updateCharCounter() {
-        const text = document.getElementById('answerInput').value;
+        const text = document.getElementById('answerInput')?.value || '';
         const charCount = text.length;
-        const maxChars = 500;
-        
-        document.getElementById('charCount').textContent = `${charCount}/${maxChars}`;
+        const maxChars = 1000;
         
         const charCountElement = document.getElementById('charCount');
-        if (charCount > maxChars * 0.9) {
-            charCountElement.style.color = 'var(--color-error)';
-        } else if (charCount > maxChars * 0.75) {
-            charCountElement.style.color = 'var(--color-warning)';
-        } else {
-            charCountElement.style.color = 'var(--color-text-muted)';
+        if (charCountElement) {
+            charCountElement.textContent = `${charCount}/${maxChars}`;
+            
+            if (charCount > maxChars * 0.9) {
+                charCountElement.style.color = 'var(--color-error)';
+            } else if (charCount > maxChars * 0.75) {
+                charCountElement.style.color = 'var(--color-warning)';
+            } else {
+                charCountElement.style.color = 'var(--color-text-muted)';
+            }
         }
     }
     
     async generateTasksFromAnswers() {
         if (this.isGeneratingTasks) return;
+        
         this.isGeneratingTasks = true;
-
-        const nextBtn = document.getElementById('nextBtn');
-        const originalHtml = nextBtn.innerHTML;
-        nextBtn.innerHTML = `<div class="loading"></div> ${this.t('ai.contacting')}`;
-        nextBtn.disabled = true;
-
+        
+        // Show loading state
+        this.showLoadingScreen(this.t('ai.generatingTasks'));
+        
         try {
             const requestData = {
                 answers: this.answers,
                 questions: this.questions,
                 language: this.currentLanguage,
-                generateReport: true // Request report as well
+                generateReport: true
             };
 
             const response = await fetch('https://intuivabackend-production.up.railway.app/api/generate-tasks', {
@@ -524,13 +768,6 @@ class IntuivaApp {
                     id: this.generateId()
                 }));
                 
-                if (this.kanbanBoard) {
-                    this.kanbanBoard.clearTasks();
-                    this.tasks.forEach(task => {
-                        this.kanbanBoard.addTask(task);
-                    });
-                }
-                
                 // Store report if provided
                 if (result.report) {
                     this.storeProjectReport(result.report);
@@ -544,23 +781,46 @@ class IntuivaApp {
         } catch (error) {
             console.warn('AI generation failed, using fallback:', error);
             this.tasks = this.generateTasksBasedOnAnswers();
-            
-            if (this.kanbanBoard) {
-                this.kanbanBoard.clearTasks();
-                this.tasks.forEach(task => {
-                    this.kanbanBoard.addTask(task);
-                });
-            }
-            
             this.showToast(this.t('ai.generatedFallback'), 'info');
         } finally {
+            this.hideLoadingScreen();
             this.saveProject();
             this.navigateTo('kanbanBoard');
             this.updateStats();
-            
-            nextBtn.innerHTML = originalHtml;
-            nextBtn.disabled = false;
             this.isGeneratingTasks = false;
+        }
+    }
+    
+    showLoadingScreen(message) {
+        const loadingScreen = document.createElement('div');
+        loadingScreen.id = 'loadingScreen';
+        loadingScreen.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--color-bg);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            gap: 1rem;
+        `;
+        
+        loadingScreen.innerHTML = `
+            <div class="loading" style="width: 40px; height: 40px; border-width: 3px;"></div>
+            <p style="color: var(--color-text); font-size: 0.875rem;">${message}</p>
+        `;
+        
+        document.body.appendChild(loadingScreen);
+    }
+    
+    hideLoadingScreen() {
+        const loadingScreen = document.getElementById('loadingScreen');
+        if (loadingScreen) {
+            loadingScreen.remove();
         }
     }
     
@@ -574,111 +834,37 @@ class IntuivaApp {
         }
         
         const tasks = [];
+        const isTurkish = this.currentLanguage === 'tr';
         
         Object.entries(this.answers).forEach(([index, answer]) => {
             if (answer === '[Skipped]' || answer === '[Not Applicable]') return;
             
             const question = this.questions[parseInt(index)];
-            const category = question.category;
+            const category = question?.category || '';
             
-            const categoryTasks = this.generateTasksForCategory(category, answer);
-            tasks.push(...categoryTasks);
-        });
-        
-        const uniqueTasks = [];
-        const titles = new Set();
-        
-        tasks.forEach(task => {
-            if (!titles.has(task.title)) {
-                titles.add(task.title);
-                uniqueTasks.push({
-                    ...task,
-                    id: this.generateId()
+            // Generate tasks based on answer length
+            if (answer.length > 20) {
+                tasks.push({
+                    id: this.generateId(),
+                    title: isTurkish ? 
+                        `"${answer.substring(0, 30)}..." için eylem planı oluştur` :
+                        `Create action plan for "${answer.substring(0, 30)}..."`,
+                    description: isTurkish ?
+                        `Bu yanıttan çıkarımlar: ${answer.substring(0, 100)}` :
+                        `Insights from this answer: ${answer.substring(0, 100)}`,
+                    status: 'todo',
+                    priority: 'medium',
+                    tags: isTurkish ? ['analiz', 'planlama'] : ['analysis', 'planning']
                 });
             }
         });
         
-        return uniqueTasks;
-    }
-    
-    generateTasksForCategory(category, answer) {
-        const tasks = [];
-        const isTurkish = this.currentLanguage === 'tr';
-        
-        if (answer && answer.trim().length > 10) {
-            tasks.push(
-                {
-                    id: this.generateId(),
-                    title: isTurkish ? `Analiz: "${answer.substring(0, 50)}..."` : `Analyze: "${answer.substring(0, 50)}..."`,
-                    description: isTurkish ? 
-                        `Bu yanıttan içgörüleri gözden geçirin ve analiz edin: ${answer}` :
-                        `Review and break down insights from: ${answer}`,
-                    status: 'todo',
-                    priority: 'medium',
-                    tags: isTurkish ? ['analiz', 'inceleme'] : ['analysis', 'review']
-                },
-                {
-                    id: this.generateId(),
-                    title: isTurkish ? 'Yanıta dayalı eylem planı oluştur' : 'Create action plan based on response',
-                    description: isTurkish ?
-                        `Kullanıcı girdisinden özel adımlar geliştirin: ${answer.substring(0, 100)}` :
-                        `Develop specific steps from user input: ${answer.substring(0, 100)}`,
-                    status: 'todo',
-                    priority: 'high',
-                    tags: isTurkish ? ['planlama', 'yürütme'] : ['planning', 'execution']
-                }
-            );
+        // Add default tasks if not enough
+        if (tasks.length < 3) {
+            tasks.push(...this.generateDefaultTasks());
         }
         
-        if (category.includes('Understanding Value') || category.includes('Değeri Anlama')) {
-            tasks.push(
-                {
-                    id: this.generateId(),
-                    title: isTurkish ? 'Birincil müşteri profillerini tanımla' : 'Define primary customer personas',
-                    description: isTurkish ?
-                        'Proje gereksinimlerine göre birincil ve ikincil kullanıcılar için detaylı profiller oluşturun' :
-                        'Create detailed profiles for primary and secondary users based on project requirements',
-                    status: 'todo',
-                    priority: 'high',
-                    tags: isTurkish ? ['planlama', 'araştırma', 'müşteri'] : ['planning', 'research', 'customer']
-                },
-                {
-                    id: this.generateId(),
-                    title: isTurkish ? 'Temel başarı metriklerini belgele' : 'Document key success metrics',
-                    description: isTurkish ?
-                        'Proje için ölçülebilir KPI\'lar ve başarı kriterlerini tanımlayın' :
-                        'Define measurable KPIs and success criteria for the project',
-                    status: 'todo',
-                    priority: 'medium',
-                    tags: isTurkish ? ['metrikler', 'planlama'] : ['metrics', 'planning']
-                }
-            );
-        } else if (category.includes('VALUE STREAM')) {
-            tasks.push(
-                {
-                    id: this.generateId(),
-                    title: isTurkish ? 'Mevcut iş akışı sürecini haritala' : 'Map current workflow process',
-                    description: isTurkish ?
-                        'Mevcut süreç adımlarını belgeleyin ve darboğazları tespit edin' :
-                        'Document existing process steps and identify bottlenecks',
-                    status: 'todo',
-                    priority: 'high',
-                    tags: isTurkish ? ['süreç', 'analiz'] : ['process', 'analysis']
-                },
-                {
-                    id: this.generateId(),
-                    title: isTurkish ? 'Bağımlılıkları ve riskleri belirle' : 'Identify dependencies and risks',
-                    description: isTurkish ?
-                        'Tüm harici bağımlılıkları ve azaltma stratejileriyle potansiyel riskleri listeleyin' :
-                        'List all external dependencies and potential risks with mitigation strategies',
-                    status: 'todo',
-                    priority: 'medium',
-                    tags: isTurkish ? ['risk', 'bağımlılıklar'] : ['risk', 'dependencies']
-                }
-            );
-        }
-        
-        return tasks;
+        return tasks.slice(0, 8); // Limit to 8 tasks
     }
     
     generateDefaultTasks() {
@@ -687,23 +873,33 @@ class IntuivaApp {
         return [
             {
                 id: this.generateId(),
-                title: isTurkish ? 'Proje kapsamını ve hedeflerini tanımla' : 'Define project scope and objectives',
+                title: isTurkish ? 'Proje hedeflerini tanımla' : 'Define project goals',
                 description: isTurkish ?
-                    'Projenin neyi teslim edeceğini ve etmeyeceğini açıkça belgeleyin' :
-                    'Clearly document what the project will and will not deliver',
-                status: 'todo',
-                priority: 'high',
-                tags: isTurkish ? ['planlama', 'kapsam'] : ['planning', 'scope']
+                    'Projenin neyi başarmasını istediğini açıkça belirt' :
+                    'Clearly state what you want the project to achieve',
+                status: "todo",
+                priority: "high",
+                tags: isTurkish ? ['planlama', 'hedefler'] : ['planning', 'goals']
             },
             {
                 id: this.generateId(),
-                title: isTurkish ? 'Ana paydaşları belirle' : 'Identify key stakeholders',
+                title: isTurkish ? 'Ana adımları belirle' : 'Identify key steps',
                 description: isTurkish ?
-                    'Tüm paydaşları listeleyin ve iletişim planını tanımlayın' :
-                    'List all stakeholders and define communication plan',
-                status: 'todo',
-                priority: 'medium',
-                tags: isTurkish ? ['paydaşlar', 'iletişim'] : ['stakeholders', 'communication']
+                    'Başarıya götürecek temel adımları listeleyin' :
+                    'List the fundamental steps that will lead to success',
+                status: "todo",
+                priority: "medium",
+                tags: isTurkish ? ['adımlar', 'yol haritası'] : ['steps', 'roadmap']
+            },
+            {
+                id: this.generateId(),
+                title: isTurkish ? 'Kaynakları planla' : 'Plan resources',
+                description: isTurkish ?
+                    'İhtiyaç duyulan zaman, bütçe ve insan kaynaklarını düşünün' :
+                    'Consider required time, budget, and human resources',
+                status: "todo",
+                priority: "medium",
+                tags: isTurkish ? ['kaynaklar', 'planlama'] : ['resources', 'planning']
             }
         ];
     }
@@ -713,35 +909,50 @@ class IntuivaApp {
     }
     
     updateStats() {
-        if (!this.kanbanBoard) return;
+        if (!this.kanbanBoard) {
+            this.initializeKanbanBoard();
+        }
         
         const stats = this.kanbanBoard.getStats();
         
-        document.getElementById('totalTasks').textContent = stats.total;
-        document.getElementById('doneTasks').textContent = stats.done;
-        document.getElementById('wipTasks').textContent = stats.inProgress;
+        const totalTasks = document.getElementById('totalTasks');
+        const doneTasks = document.getElementById('doneTasks');
+        const wipTasks = document.getElementById('wipTasks');
+        const todoCount = document.getElementById('todoCount');
+        const inprogressCount = document.getElementById('inprogressCount');
+        const doneCount = document.getElementById('doneCount');
         
-        document.getElementById('todoCount').textContent = stats.todo;
-        document.getElementById('inprogressCount').textContent = stats.inProgress;
-        document.getElementById('doneCount').textContent = stats.done;
+        if (totalTasks) totalTasks.textContent = stats.total;
+        if (doneTasks) doneTasks.textContent = stats.done;
+        if (wipTasks) wipTasks.textContent = stats.inProgress;
+        if (todoCount) todoCount.textContent = stats.todo;
+        if (inprogressCount) inprogressCount.textContent = stats.inProgress;
+        if (doneCount) doneCount.textContent = stats.done;
     }
     
     openTaskModal(status = 'todo') {
-        document.getElementById('modalTitle').textContent = this.t('modal.addTask');
-        document.getElementById('taskStatus').value = status;
-        this.taskModal.classList.add('active');
-        document.getElementById('taskTitle').focus();
+        const modal = document.getElementById('taskModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const taskStatus = document.getElementById('taskStatus');
+        const taskTitle = document.getElementById('taskTitle');
+        
+        if (modal && modalTitle) {
+            modalTitle.textContent = this.t('modal.addTask');
+            if (taskStatus) taskStatus.value = status;
+            modal.classList.add('active');
+            if (taskTitle) setTimeout(() => taskTitle.focus(), 100);
+        }
     }
     
     saveTask() {
-        const title = document.getElementById('taskTitle').value.trim();
-        const description = document.getElementById('taskDescription').value.trim();
-        const priority = document.getElementById('taskPriority').value;
-        const status = document.getElementById('taskStatus').value;
-        const tags = document.getElementById('taskTags').value
-            .split(',')
+        const title = document.getElementById('taskTitle')?.value?.trim();
+        const description = document.getElementById('taskDescription')?.value?.trim();
+        const priority = document.getElementById('taskPriority')?.value;
+        const status = document.getElementById('taskStatus')?.value;
+        const tags = document.getElementById('taskTags')?.value
+            ?.split(',')
             .map(tag => tag.trim())
-            .filter(tag => tag);
+            .filter(tag => tag) || [];
         
         if (!title) {
             this.showToast(this.t('error.taskTitleRequired'), 'error');
@@ -752,18 +963,24 @@ class IntuivaApp {
             id: this.generateId(),
             title,
             description,
-            priority,
-            status,
+            priority: priority || 'medium',
+            status: status || 'todo',
             tags,
             createdAt: new Date().toISOString(),
             language: this.currentLanguage
         };
         
-        this.kanbanBoard.addTask(task);
-        this.tasks.push(task);
-        this.updateStats();
-        this.taskModal.classList.remove('active');
-        this.taskForm.reset();
+        if (this.kanbanBoard) {
+            this.kanbanBoard.addTask(task);
+            this.tasks.push(task);
+            this.updateStats();
+        }
+        
+        const modal = document.getElementById('taskModal');
+        if (modal) modal.classList.remove('active');
+        
+        const taskForm = document.getElementById('taskForm');
+        if (taskForm) taskForm.reset();
         
         this.showToast(this.t('toast.taskAdded'), 'success');
         this.saveProject();
@@ -773,11 +990,7 @@ class IntuivaApp {
         if (this.isGeneratingTasks) return;
         
         this.isGeneratingTasks = true;
-        
-        const btn = document.getElementById('regenerateBtn');
-        const originalHtml = btn.innerHTML;
-        btn.innerHTML = `<div class="loading"></div> ${this.t('ai.regenerating')}`;
-        btn.disabled = true;
+        this.showLoadingScreen(this.t('ai.regeneratingTasks'));
         
         try {
             const requestData = {
@@ -820,115 +1033,23 @@ class IntuivaApp {
             
         } catch (error) {
             console.warn('AI regeneration failed:', error);
-            this.tasks = this.generateTasksBasedOnAnswers();
-            if (this.kanbanBoard) {
-                this.kanbanBoard.clearTasks();
-                this.tasks.forEach(task => {
-                    this.kanbanBoard.addTask(task);
-                });
-            }
             this.showToast(this.t('ai.regeneratedFallback'), 'info');
         } finally {
+            this.hideLoadingScreen();
             this.updateStats();
             this.saveProject();
-            
-            btn.innerHTML = originalHtml;
-            btn.disabled = false;
             this.isGeneratingTasks = false;
         }
     }
     
-    exportProject() {
-        const project = this.saveProject();
-        const data = {
-            ...project,
-            exportedAt: new Date().toISOString(),
-            exportedFrom: 'Intuiva Project Manager'
-        };
-        
-        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `intuiva-project-${project.name.replace(/\s+/g, '-').toLowerCase()}-${new Date().toISOString().split('T')[0]}.json`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        
-        this.showToast(this.t('toast.projectExported'), 'success');
-    }
-    
-    toggleTheme() {
-        const currentTheme = document.documentElement.getAttribute('data-theme');
-        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-        
-        document.documentElement.setAttribute('data-theme', newTheme);
-        localStorage.setItem('intuiva-theme', newTheme);
-        
-        const themeIcon = document.querySelector('#themeToggle i');
-        themeIcon.className = newTheme === 'dark' ? 'fas fa-moon' : 'fas fa-sun';
-        
-        this.showToast(this.t('toast.themeSwitched', { theme: this.t(`theme.${newTheme}`) }), 'info');
-    }
-    
-    setLanguage(lang) {
-        if (lang !== this.currentLanguage && (lang === 'en' || lang === 'tr')) {
-            this.currentLanguage = lang;
-            localStorage.setItem('intuiva-language', lang);
-            
-            // Reload questions in new language
-            if (window.getQuestions) {
-                this.questions = window.getQuestions(this.currentLanguage);
-            } else if (window.QUESTIONS && window.QUESTIONS[this.currentLanguage]) {
-                this.questions = window.QUESTIONS[this.currentLanguage];
-            }
-            this.totalQuestions = this.questions.length;
-            
-            // Update UI
-            this.applyLanguage();
-            
-            // Reload current screen
-            if (this.currentScreen === 'questionnaire') {
-                this.loadQuestion(this.currentQuestionIndex);
-            }
-            
-            this.showToast(this.t('toast.languageChanged', { language: this.t(`language.${lang}`) }), 'info');
-        }
-    }
-    
-    showToast(message, type = 'info') {
-        const toast = document.getElementById('toast');
-        const toastMessage = document.getElementById('toastMessage');
-        
-        toastMessage.textContent = message;
-        
-        const colors = {
-            success: 'var(--color-success)',
-            error: 'var(--color-error)',
-            warning: 'var(--color-warning)',
-            info: 'var(--color-info)'
-        };
-        
-        toast.style.borderLeftColor = colors[type] || colors.info;
-        toast.classList.add('active');
-        
-        setTimeout(() => {
-            toast.classList.remove('active');
-        }, 3000);
-    }
-    
-    generateId() {
-        return Date.now().toString(36) + Math.random().toString(36).substr(2);
-    }
-    
     createNewProject() {
+        // Reset everything
         this.currentQuestionIndex = 0;
         this.answers = {};
         this.tasks = [];
         this.currentProject = {
             id: this.generateId(),
-            name: `Project ${new Date().toLocaleDateString()}`,
+            name: this.t('project.defaultName', { date: new Date().toLocaleDateString() }),
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
             tasks: [],
@@ -936,6 +1057,13 @@ class IntuivaApp {
             language: this.currentLanguage
         };
         
+        // Update board title
+        const boardTitle = document.getElementById('boardTitle');
+        if (boardTitle) {
+            boardTitle.textContent = this.currentProject.name;
+        }
+        
+        // Navigate to questionnaire
         this.navigateTo('questionnaire');
         this.loadQuestion(0);
         
@@ -946,7 +1074,7 @@ class IntuivaApp {
         if (!this.currentProject) {
             this.currentProject = {
                 id: this.generateId(),
-                name: `Project ${new Date().toLocaleDateString()}`,
+                name: this.t('project.defaultName', { date: new Date().toLocaleDateString() }),
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
                 tasks: this.tasks,
@@ -961,9 +1089,9 @@ class IntuivaApp {
         this.currentProject.language = this.currentLanguage;
         
         // Update board title if set
-        const boardTitle = document.getElementById('boardTitle').textContent;
-        if (boardTitle && boardTitle !== 'Project Board') {
-            this.currentProject.name = boardTitle;
+        const boardTitle = document.getElementById('boardTitle');
+        if (boardTitle && boardTitle.textContent !== 'Project Board') {
+            this.currentProject.name = boardTitle.textContent;
         }
         
         this.saveProjectToStorage(this.currentProject);
@@ -974,12 +1102,12 @@ class IntuivaApp {
     }
     
     saveProjectAs() {
-        const name = document.getElementById('projectName').value.trim();
-        const description = document.getElementById('projectDescription').value.trim();
-        const tags = document.getElementById('projectTags').value
-            .split(',')
+        const name = document.getElementById('projectName')?.value?.trim();
+        const description = document.getElementById('projectDescription')?.value?.trim();
+        const tags = document.getElementById('projectTags')?.value
+            ?.split(',')
             .map(tag => tag.trim())
-            .filter(tag => tag);
+            .filter(tag => tag) || [];
         
         if (!name) {
             this.showToast(this.t('error.projectNameRequired'), 'error');
@@ -1006,18 +1134,29 @@ class IntuivaApp {
         this.currentProject.language = this.currentLanguage;
         
         // Update auto-save setting
-        this.autoSaveEnabled = document.getElementById('autoSave').checked;
-        if (this.autoSaveEnabled) {
-            this.startAutoSave();
-        } else {
-            this.stopAutoSave();
+        const autoSave = document.getElementById('autoSave');
+        if (autoSave) {
+            this.autoSaveEnabled = autoSave.checked;
+            if (this.autoSaveEnabled) {
+                this.startAutoSave();
+            } else {
+                this.stopAutoSave();
+            }
         }
         
         this.saveProjectToStorage(this.currentProject);
         this.updateSavedProjectsDropdown();
-        this.saveProjectModal.classList.remove('active');
         
-        document.getElementById('boardTitle').textContent = name;
+        const saveProjectModal = document.getElementById('saveProjectModal');
+        if (saveProjectModal) saveProjectModal.classList.remove('active');
+        
+        // Update UI
+        const boardTitle = document.getElementById('boardTitle');
+        if (boardTitle) boardTitle.textContent = name;
+        
+        const currentProjectName = document.getElementById('currentProjectName');
+        if (currentProjectName) currentProjectName.textContent = name;
+        
         this.showToast(this.t('toast.projectSaved'), 'success');
     }
     
@@ -1041,12 +1180,6 @@ class IntuivaApp {
             localStorage.setItem('intuiva-last-project', project.id);
         } catch (e) {
             console.warn('Failed to save project to localStorage:', e);
-            // Try to clear some space
-            try {
-                localStorage.setItem('intuiva-projects', JSON.stringify(recentProjects.slice(0, 10)));
-            } catch (e2) {
-                console.error('Could not save project:', e2);
-            }
         }
     }
     
@@ -1083,14 +1216,15 @@ class IntuivaApp {
         // Apply language
         this.applyLanguage();
         
-        // Load kanban board
-        if (this.kanbanBoard) {
-            this.kanbanBoard.tasks = this.tasks;
-            this.kanbanBoard.renderTasks();
-        }
-        
         // Update UI
-        document.getElementById('boardTitle').textContent = project.name || 'Project Board';
+        const boardTitle = document.getElementById('boardTitle');
+        if (boardTitle) boardTitle.textContent = project.name || 'Project Board';
+        
+        const currentProjectName = document.getElementById('currentProjectName');
+        if (currentProjectName) currentProjectName.textContent = project.name || 'Untitled Project';
+        
+        // Load kanban board
+        this.initializeKanbanBoard();
         this.updateStats();
         this.navigateTo('kanbanBoard');
         
@@ -1099,12 +1233,19 @@ class IntuivaApp {
     
     showSaveProjectModal() {
         if (this.currentProject) {
-            document.getElementById('projectName').value = this.currentProject.name || '';
-            document.getElementById('projectDescription').value = this.currentProject.description || '';
-            document.getElementById('projectTags').value = (this.currentProject.tags || []).join(', ');
+            const projectName = document.getElementById('projectName');
+            const projectDescription = document.getElementById('projectDescription');
+            const projectTags = document.getElementById('projectTags');
+            const autoSave = document.getElementById('autoSave');
+            
+            if (projectName) projectName.value = this.currentProject.name || '';
+            if (projectDescription) projectDescription.value = this.currentProject.description || '';
+            if (projectTags) projectTags.value = (this.currentProject.tags || []).join(', ');
+            if (autoSave) autoSave.checked = this.autoSaveEnabled;
         }
-        document.getElementById('autoSave').checked = this.autoSaveEnabled;
-        document.getElementById('saveProjectModal').classList.add('active');
+        
+        const modal = document.getElementById('saveProjectModal');
+        if (modal) modal.classList.add('active');
     }
     
     showLoadProjectModal() {
@@ -1112,54 +1253,58 @@ class IntuivaApp {
         const noProjects = document.getElementById('noProjectsMessage');
         const projects = this.getSavedProjects();
         
-        if (projects.length === 0) {
-            list.style.display = 'none';
-            noProjects.style.display = 'block';
-        } else {
-            list.style.display = 'block';
-            noProjects.style.display = 'none';
-            
-            list.innerHTML = projects
-                .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
-                .map(project => `
-                    <div class="project-item" data-project-id="${project.id}">
-                        <div class="project-info">
-                            <div class="project-name">${this.escapeHtml(project.name || 'Unnamed Project')}</div>
-                            <div class="project-meta">
-                                <span>${project.tasks?.length || 0} tasks</span>
-                                <span>•</span>
-                                <span>${this.formatDate(project.updatedAt)}</span>
-                                ${project.description ? `<span>•</span><span>${this.escapeHtml(project.description.substring(0, 30))}...</span>` : ''}
+        if (list && noProjects) {
+            if (projects.length === 0) {
+                list.style.display = 'none';
+                noProjects.style.display = 'block';
+            } else {
+                list.style.display = 'block';
+                noProjects.style.display = 'none';
+                
+                list.innerHTML = projects
+                    .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
+                    .map(project => `
+                        <div class="project-item" data-project-id="${project.id}">
+                            <div class="project-info">
+                                <div class="project-name">${this.escapeHtml(project.name || 'Unnamed Project')}</div>
+                                <div class="project-meta">
+                                    <span>${project.tasks?.length || 0} tasks</span>
+                                    <span>•</span>
+                                    <span>${this.formatDate(project.updatedAt)}</span>
+                                    ${project.description ? `<span>•</span><span>${this.escapeHtml(project.description.substring(0, 30))}...</span>` : ''}
+                                </div>
                             </div>
+                            <button class="btn-icon delete-project" data-project-id="${project.id}" title="Delete project">
+                                <i class="fas fa-trash"></i>
+                            </button>
                         </div>
-                        <button class="btn-icon delete-project" data-project-id="${project.id}" title="Delete project">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </div>
-                `).join('');
-            
-            // Add event listeners
-            list.querySelectorAll('.project-item').forEach(item => {
-                item.addEventListener('click', (e) => {
-                    if (!e.target.closest('.delete-project')) {
+                    `).join('');
+                
+                // Add event listeners
+                list.querySelectorAll('.project-item').forEach(item => {
+                    item.addEventListener('click', (e) => {
+                        if (!e.target.closest('.delete-project')) {
+                            const projectId = e.currentTarget.dataset.projectId;
+                            this.loadProject(projectId);
+                            const modal = document.getElementById('loadProjectModal');
+                            if (modal) modal.classList.remove('active');
+                        }
+                    });
+                });
+                
+                // Add delete button listeners
+                list.querySelectorAll('.delete-project').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
                         const projectId = e.currentTarget.dataset.projectId;
-                        this.loadProject(projectId);
-                        document.getElementById('loadProjectModal').classList.remove('active');
-                    }
+                        this.deleteProject(projectId);
+                    });
                 });
-            });
-            
-            // Add delete button listeners
-            list.querySelectorAll('.delete-project').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const projectId = e.currentTarget.dataset.projectId;
-                    this.deleteProject(projectId);
-                });
-            });
+            }
         }
         
-        document.getElementById('loadProjectModal').classList.add('active');
+        const modal = document.getElementById('loadProjectModal');
+        if (modal) modal.classList.add('active');
     }
     
     deleteProject(projectId) {
@@ -1227,7 +1372,9 @@ class IntuivaApp {
                     // Save the imported project
                     this.saveProjectToStorage(project);
                     this.loadProject(project.id);
-                    document.getElementById('loadProjectModal').classList.remove('active');
+                    
+                    const modal = document.getElementById('loadProjectModal');
+                    if (modal) modal.classList.remove('active');
                     
                     this.showToast(this.t('toast.projectImported'), 'success');
                 } catch (error) {
@@ -1241,15 +1388,133 @@ class IntuivaApp {
         input.click();
     }
     
+    exportProject() {
+        const project = this.saveProject();
+        const data = {
+            ...project,
+            exportedAt: new Date().toISOString(),
+            exportedFrom: 'Intuiva Project Manager'
+        };
+        
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `intuiva-project-${(project.name || 'project').replace(/\s+/g, '-').toLowerCase()}-${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        this.showToast(this.t('toast.projectExported'), 'success');
+    }
+    
+    toggleTheme() {
+        const currentTheme = document.documentElement.getAttribute('data-theme');
+        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        
+        document.documentElement.setAttribute('data-theme', newTheme);
+        localStorage.setItem('intuiva-theme', newTheme);
+        
+        const themeIcon = document.querySelector('#themeToggle i');
+        if (themeIcon) {
+            themeIcon.className = newTheme === 'dark' ? 'fas fa-moon' : 'fas fa-sun';
+        }
+        
+        this.showToast(this.t('toast.themeSwitched', { theme: this.t(`theme.${newTheme}`) }), 'info');
+    }
+    
+    toggleCompactView() {
+        this.isCompactView = !this.isCompactView;
+        localStorage.setItem('intuiva-compact', this.isCompactView);
+        this.applyCompactView();
+        
+        const icon = document.querySelector('#compactToggle i');
+        if (icon) {
+            icon.className = this.isCompactView ? 'fas fa-expand-alt' : 'fas fa-compress-alt';
+        }
+        
+        this.showToast(this.t('toast.compactMode', { mode: this.isCompactView ? this.t('on') : this.t('off') }), 'info');
+    }
+    
+    applyCompactView() {
+        const appContainer = document.querySelector('.app-container');
+        if (appContainer) {
+            if (this.isCompactView) {
+                appContainer.classList.add('compact');
+            } else {
+                appContainer.classList.remove('compact');
+            }
+        }
+    }
+    
+    setLanguage(lang) {
+        if (lang !== this.currentLanguage && (lang === 'en' || lang === 'tr')) {
+            this.currentLanguage = lang;
+            localStorage.setItem('intuiva-language', lang);
+            
+            // Reload questions in new language
+            if (window.getQuestions) {
+                this.questions = window.getQuestions(this.currentLanguage);
+            } else if (window.QUESTIONS && window.QUESTIONS[this.currentLanguage]) {
+                this.questions = window.QUESTIONS[this.currentLanguage];
+            } else if (Array.isArray(window.QUESTIONS)) {
+                this.questions = window.QUESTIONS;
+            }
+            this.totalQuestions = this.questions.length;
+            
+            // Update UI
+            this.applyLanguage();
+            
+            // Reload current screen
+            if (this.currentScreen === 'questionnaire') {
+                this.loadQuestion(this.currentQuestionIndex);
+            }
+            
+            this.showToast(this.t('toast.languageChanged', { language: this.t(`language.${lang}`) }), 'info');
+        }
+    }
+    
+    jumpToQuestion(index) {
+        this.saveCurrentAnswer();
+        this.loadQuestion(index);
+    }
+    
+    showToast(message, type = 'info') {
+        const toast = document.getElementById('toast');
+        const toastMessage = document.getElementById('toastMessage');
+        
+        if (toast && toastMessage) {
+            toastMessage.textContent = message;
+            
+            const colors = {
+                success: 'var(--color-success)',
+                error: 'var(--color-error)',
+                warning: 'var(--color-warning)',
+                info: 'var(--color-info)'
+            };
+            
+            toast.style.borderLeftColor = colors[type] || colors.info;
+            toast.classList.add('active');
+            
+            setTimeout(() => {
+                toast.classList.remove('active');
+            }, 3000);
+        }
+    }
+    
+    generateId() {
+        return Date.now().toString(36) + Math.random().toString(36).substr(2);
+    }
+    
     startAutoSave() {
-        this.stopAutoSave(); // Clear any existing interval
+        this.stopAutoSave();
         
         this.autoSaveInterval = setInterval(() => {
             if (this.autoSaveEnabled && (this.tasks.length > 0 || Object.keys(this.answers).length > 0)) {
                 this.saveProject();
-                console.log('Auto-saved project');
             }
-        }, 30000); // Every 30 seconds
+        }, 30000);
     }
     
     stopAutoSave() {
@@ -1276,29 +1541,30 @@ class IntuivaApp {
         const diffHours = Math.floor(diffMs / 3600000);
         const diffDays = Math.floor(diffMs / 86400000);
         
-        if (diffMins < 1) return 'just now';
-        if (diffMins < 60) return `${diffMins}m ago`;
-        if (diffHours < 24) return `${diffHours}h ago`;
-        if (diffDays < 7) return `${diffDays}d ago`;
+        if (diffMins < 1) return this.t('time.justNow');
+        if (diffMins < 60) return this.t('time.minutesAgo', { minutes: diffMins });
+        if (diffHours < 24) return this.t('time.hoursAgo', { hours: diffHours });
+        if (diffDays < 7) return this.t('time.daysAgo', { days: diffDays });
         
         return date.toLocaleDateString();
     }
     
     toggleSavedProjectsDropdown() {
         const menu = document.getElementById('savedProjectsMenu');
-        menu.classList.toggle('active');
-        
-        // Close dropdown when clicking outside
-        if (menu.classList.contains('active')) {
-            const closeHandler = (e) => {
-                if (!menu.contains(e.target) && e.target.id !== 'savedProjectsBtn') {
-                    menu.classList.remove('active');
-                    document.removeEventListener('click', closeHandler);
-                }
-            };
-            setTimeout(() => {
-                document.addEventListener('click', closeHandler);
-            }, 0);
+        if (menu) {
+            menu.classList.toggle('active');
+            
+            if (menu.classList.contains('active')) {
+                const closeHandler = (e) => {
+                    if (!menu.contains(e.target) && e.target.id !== 'savedProjectsBtn') {
+                        menu.classList.remove('active');
+                        document.removeEventListener('click', closeHandler);
+                    }
+                };
+                setTimeout(() => {
+                    document.addEventListener('click', closeHandler);
+                }, 0);
+            }
         }
     }
     
@@ -1306,59 +1572,49 @@ class IntuivaApp {
         const menu = document.getElementById('savedProjectsMenu');
         const projects = this.getSavedProjects();
         
-        if (projects.length === 0) {
-            menu.innerHTML = `
-                <div class="project-item" style="justify-content: center; color: var(--color-text-muted);">
-                    <i class="fas fa-folder-open"></i>
-                    <span style="margin-left: 0.5rem;">No saved projects</span>
-                </div>
-            `;
-            return;
-        }
-        
-        menu.innerHTML = projects
-            .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
-            .slice(0, 5)
-            .map(project => `
-                <div class="project-item" data-project-id="${project.id}">
-                    <div class="project-info">
-                        <div class="project-name">${this.escapeHtml(project.name || 'Unnamed Project')}</div>
-                        <div class="project-meta">
-                            <span>${project.tasks?.length || 0} tasks</span>
-                            <span>•</span>
-                            <span>${this.formatDate(project.updatedAt)}</span>
-                        </div>
+        if (menu) {
+            if (projects.length === 0) {
+                menu.innerHTML = `
+                    <div class="project-item" style="justify-content: center; color: var(--color-text-muted);">
+                        <i class="fas fa-folder-open"></i>
+                        <span style="margin-left: 0.5rem;">${this.t('project.noProjects')}</span>
                     </div>
-                    <i class="fas fa-chevron-right" style="color: var(--color-text-muted);"></i>
-                </div>
-            `).join('');
-        
-        // Add event listeners
-        menu.querySelectorAll('.project-item').forEach(item => {
-            item.addEventListener('click', (e) => {
-                const projectId = e.currentTarget.dataset.projectId;
-                this.loadProject(projectId);
-                menu.classList.remove('active');
+                `;
+                return;
+            }
+            
+            menu.innerHTML = projects
+                .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
+                .slice(0, 5)
+                .map(project => `
+                    <div class="project-item" data-project-id="${project.id}">
+                        <div class="project-info">
+                            <div class="project-name">${this.escapeHtml(project.name || 'Unnamed Project')}</div>
+                            <div class="project-meta">
+                                <span>${project.tasks?.length || 0} tasks</span>
+                                <span>•</span>
+                                <span>${this.formatDate(project.updatedAt)}</span>
+                            </div>
+                        </div>
+                        <i class="fas fa-chevron-right" style="color: var(--color-text-muted);"></i>
+                    </div>
+                `).join('');
+            
+            menu.querySelectorAll('.project-item').forEach(item => {
+                item.addEventListener('click', (e) => {
+                    const projectId = e.currentTarget.dataset.projectId;
+                    this.loadProject(projectId);
+                    menu.classList.remove('active');
+                });
             });
-        });
+        }
     }
     
     async generateProjectReport() {
         if (this.isGeneratingReport) return;
         this.isGeneratingReport = true;
         
-        const btn = document.getElementById('generateReportBtn');
-        const placeholderBtn = document.getElementById('generateReportPlaceholderBtn');
-        const originalHtml = btn ? btn.innerHTML : placeholderBtn.innerHTML;
-        
-        if (btn) {
-            btn.innerHTML = `<div class="loading"></div> ${this.t('ai.generatingReport')}`;
-            btn.disabled = true;
-        }
-        if (placeholderBtn) {
-            placeholderBtn.innerHTML = `<div class="loading"></div> ${this.t('ai.generatingReport')}`;
-            placeholderBtn.disabled = true;
-        }
+        this.showLoadingScreen(this.t('ai.generatingReport'));
         
         try {
             const requestData = {
@@ -1393,14 +1649,7 @@ class IntuivaApp {
             this.showToast(this.t('ai.reportGeneratedLocal'), 'info');
             
         } finally {
-            if (btn) {
-                btn.innerHTML = originalHtml;
-                btn.disabled = false;
-            }
-            if (placeholderBtn) {
-                placeholderBtn.innerHTML = originalHtml;
-                placeholderBtn.disabled = false;
-            }
+            this.hideLoadingScreen();
             this.isGeneratingReport = false;
         }
     }
@@ -1409,7 +1658,7 @@ class IntuivaApp {
         if (!this.currentProject) {
             this.currentProject = {
                 id: this.generateId(),
-                name: `Project ${new Date().toLocaleDateString()}`,
+                name: this.t('project.defaultName', { date: new Date().toLocaleDateString() }),
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
                 tasks: this.tasks,
@@ -1426,76 +1675,101 @@ class IntuivaApp {
         this.displayProjectReport(report);
         
         // Enable PDF download button
-        document.getElementById('downloadPdfBtn').disabled = false;
+        const downloadPdfBtn = document.getElementById('downloadPdfBtn');
+        if (downloadPdfBtn) downloadPdfBtn.disabled = false;
     }
     
     displayProjectReport(report) {
         const reportContent = document.getElementById('reportContent');
-        reportContent.innerHTML = `
-            <div style="font-family: inherit;">
-                <div style="margin-bottom: 1.5rem;">
-                    <h4 style="color: var(--color-primary); margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
-                        <i class="fas fa-chart-line"></i>
-                        ${this.currentProject?.name || 'Project'} Analysis Report
-                    </h4>
-                    <div style="color: var(--color-text-muted); font-size: 0.875rem; margin-bottom: 1rem;">
-                        Generated on ${new Date().toLocaleDateString()} • ${this.tasks.length} tasks • ${Object.keys(this.answers).length} answers analyzed
+        if (reportContent) {
+            reportContent.innerHTML = `
+                <div style="font-family: inherit;">
+                    <div style="margin-bottom: 1.5rem;">
+                        <h4 style="color: var(--color-primary); margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+                            <i class="fas fa-chart-line"></i>
+                            ${this.currentProject?.name || 'Project'} Analysis Report
+                        </h4>
+                        <div style="color: var(--color-text-muted); font-size: 0.875rem; margin-bottom: 1rem;">
+                            ${this.t('report.generatedOn')} ${new Date().toLocaleDateString()} • ${this.tasks.length} ${this.t('report.tasks')} • ${Object.keys(this.answers).length} ${this.t('report.answersAnalyzed')}
+                        </div>
+                    </div>
+                    
+                    <div style="margin-bottom: 1.5rem;">
+                        ${report.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\*(.*?)\*/g, '<em>$1</em>')}
+                    </div>
+                    
+                    <div style="background-color: var(--color-surface-light); padding: 1rem; border-radius: var(--radius-md); margin-top: 1.5rem;">
+                        <div style="display: flex; align-items: center; gap: 0.5rem; color: var(--color-text-secondary); font-size: 0.875rem;">
+                            <i class="fas fa-lightbulb"></i>
+                            <span>${this.t('report.aiInsights')}</span>
+                        </div>
                     </div>
                 </div>
-                
-                <div style="margin-bottom: 1.5rem;">
-                    ${report.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\*(.*?)\*/g, '<em>$1</em>')}
-                </div>
-                
-                <div style="background-color: var(--color-surface-light); padding: 1rem; border-radius: var(--radius-md); margin-top: 1.5rem;">
-                    <div style="display: flex; align-items: center; gap: 0.5rem; color: var(--color-text-secondary); font-size: 0.875rem;">
-                        <i class="fas fa-lightbulb"></i>
-                        <span>AI-generated insights based on your project data. Use these recommendations to optimize your workflow.</span>
-                    </div>
-                </div>
-            </div>
-        `;
+            `;
+            reportContent.classList.remove('collapsed');
+        }
     }
     
     generateLocalReport() {
         const completedTasks = this.tasks.filter(t => t.status === 'done').length;
         const totalTasks = this.tasks.length;
         const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
-        
         const highPriorityTasks = this.tasks.filter(t => t.priority === 'high' || t.priority === 'critical').length;
         const answeredQuestions = Object.values(this.answers).filter(a => 
             a && a !== '[Skipped]' && a !== '[Not Applicable]'
         ).length;
         
-        return `
+        const isTurkish = this.currentLanguage === 'tr';
+        
+        return isTurkish ? `
+**Proje Özeti**
+${answeredQuestions} soru yanıtına ve ${totalTasks} göreve dayanarak oluşturulmuştur. Tamamlanma oranı: %${completionRate}
+
+**Analiz ve Değerlendirme**
+• **Mevcut Durum**: ${completedTasks} görev tamamlandı, ${totalTasks - completedTasks} görev bekliyor
+• **Öncelik Dağılımı**: ${highPriorityTasks} yüksek öncelikli görev
+• **İlerleme**: %${completionRate} tamamlanma oranı
+
+**Risk Değerlendirmesi**
+• **Orta Risk**: Kapsam belirsizliği olabilir
+• **Düşük Risk**: Temel yapı oluşturulmuş
+
+**Öneriler**
+1. Yüksek öncelikli görevlere odaklanın
+2. Haftalık ilerleme takibi yapın
+3. Görevleri küçük parçalara bölün
+
+**Sonraki Adımlar**
+1. Acil görevleri tamamlayın
+2. İlerlemeyi düzenli olarak gözden geçirin
+3. Proje hedeflerini güncelleyin
+
+*Bu otomatik oluşturulmuş bir rapordur. Detaylar proje ilerledikçe güncellenmelidir.*
+` : `
 **Executive Summary**
-Based on your ${answeredQuestions} detailed answers and ${totalTasks} generated tasks, your project shows strong potential. Completion rate is currently at ${completionRate}%.
+Based on ${answeredQuestions} answers and ${totalTasks} tasks. Completion rate: ${completionRate}%
 
-**Key Findings**
-1. **Project Scope**: Well-defined with clear objectives based on your responses
-2. **Task Distribution**: ${highPriorityTasks} high-priority tasks identified for immediate focus
-3. **Progress Tracking**: ${completedTasks} of ${totalTasks} tasks completed
-4. **Resource Allocation**: Tasks are properly prioritized for efficient workflow
-
-**Recommendations**
-1. Focus on completing high-priority tasks first
-2. Consider breaking down larger tasks if progress stalls
-3. Regular review of task priorities as project evolves
-4. Use the Kanban board to visualize workflow bottlenecks
-
-**Next Steps**
-1. Review and adjust task priorities weekly
-2. Set realistic deadlines for critical tasks
-3. Regular progress reviews every 3-5 days
-4. Export this report for stakeholder updates
+**Analysis & Assessment**
+• **Current Status**: ${completedTasks} tasks completed, ${totalTasks - completedTasks} tasks pending
+• **Priority Distribution**: ${highPriorityTasks} high-priority tasks
+• **Progress**: ${completionRate}% completion rate
 
 **Risk Assessment**
-- Low risk of scope creep based on current task structure
-- Good task distribution across priority levels
-- Clear path to completion visible in current board layout
+• **Medium Risk**: Possible scope uncertainty
+• **Low Risk**: Basic structure established
 
-*This report was generated based on your project data. For more detailed analysis, continue adding tasks and updating progress.*
-        `;
+**Recommendations**
+1. Focus on high-priority tasks
+2. Conduct weekly progress reviews
+3. Break down larger tasks
+
+**Next Steps**
+1. Complete urgent tasks
+2. Regularly review progress
+3. Update project goals
+
+*This is an automatically generated report. Details should be updated as the project progresses.*
+`;
     }
     
     downloadPdfReport() {
@@ -1530,26 +1804,26 @@ Based on your ${answeredQuestions} detailed answers and ${totalTasks} generated 
                 <div class="header">
                     <h1>${this.escapeHtml(this.currentProject.name)}</h1>
                     <div class="meta">
-                        Generated by Intuiva AI Project Manager • ${new Date().toLocaleDateString()}
+                        ${this.t('report.generatedBy')} • ${new Date().toLocaleDateString()}
                     </div>
                 </div>
                 
                 <div class="stats">
                     <div class="stat-box">
                         <div class="stat-value">${this.tasks.length}</div>
-                        <div class="stat-label">Total Tasks</div>
+                        <div class="stat-label">${this.t('report.totalTasks')}</div>
                     </div>
                     <div class="stat-box">
                         <div class="stat-value">${this.tasks.filter(t => t.status === 'done').length}</div>
-                        <div class="stat-label">Completed</div>
+                        <div class="stat-label">${this.t('report.completed')}</div>
                     </div>
                     <div class="stat-box">
                         <div class="stat-value">${this.tasks.filter(t => t.priority === 'high' || t.priority === 'critical').length}</div>
-                        <div class="stat-label">High Priority</div>
+                        <div class="stat-label">${this.t('report.highPriority')}</div>
                     </div>
                     <div class="stat-box">
                         <div class="stat-value">${Object.keys(this.answers).length}</div>
-                        <div class="stat-label">Questions Answered</div>
+                        <div class="stat-label">${this.t('report.questionsAnswered')}</div>
                     </div>
                 </div>
                 
@@ -1565,9 +1839,9 @@ Based on your ${answeredQuestions} detailed answers and ${totalTasks} generated 
                 }).join('')}
                 
                 <div class="footer">
-                    <p>This report was generated by Intuiva AI Project Manager.</p>
-                    <p>Creator: Ilke Candan Bengi • <a href="https://www.linkedin.com/in/ilkecandan/">LinkedIn Profile</a></p>
-                    <p>Report generated on: ${new Date().toLocaleString()}</p>
+                    <p>${this.t('report.generatedByIntuiva')}</p>
+                    <p>${this.t('report.creator')}: Ilke Candan Bengi • <a href="https://www.linkedin.com/in/ilkecandan/">LinkedIn Profile</a></p>
+                    <p>${this.t('report.generatedOn')}: ${new Date().toLocaleString()}</p>
                 </div>
             </body>
             </html>
@@ -1577,7 +1851,7 @@ Based on your ${answeredQuestions} detailed answers and ${totalTasks} generated 
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `intuiva-report-${this.currentProject.name.replace(/\s+/g, '-').toLowerCase()}.html`;
+        a.download = `intuiva-report-${(this.currentProject.name || 'project').replace(/\s+/g, '-').toLowerCase()}.html`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -1591,57 +1865,14 @@ Based on your ${answeredQuestions} detailed answers and ${totalTasks} generated 
         div.textContent = text;
         return div.innerHTML;
     }
-    
-    // Backward compatibility methods
-    saveToLocalStorage() {
-        // This is now handled by saveProject()
-        this.saveProject();
-    }
-    
-    loadFromLocalStorage() {
-        // This is now handled by initProjectManagement()
-        // Load any existing data for backward compatibility
-        try {
-            const oldData = JSON.parse(localStorage.getItem('intuiva-data'));
-            if (oldData && !this.currentProject) {
-                // Migrate old data to new project format
-                this.tasks = oldData.tasks || [];
-                this.answers = oldData.answers || {};
-                this.currentLanguage = oldData.language || this.currentLanguage;
-                
-                // Create a project from old data
-                this.currentProject = {
-                    id: this.generateId(),
-                    name: `Migrated Project`,
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString(),
-                    tasks: this.tasks,
-                    answers: this.answers,
-                    language: this.currentLanguage
-                };
-                
-                this.saveProjectToStorage(this.currentProject);
-                
-                // Update language selector
-                const langSelector = document.getElementById('languageSelector');
-                if (langSelector) {
-                    langSelector.value = this.currentLanguage;
-                }
-                
-                if (this.tasks && this.tasks.length > 0) {
-                    if (!this.kanbanBoard) {
-                        this.kanbanBoard = new KanbanBoard(this.tasks);
-                    }
-                    this.updateStats();
-                }
-            }
-        } catch (e) {
-            console.warn('Failed to load old data from localStorage:', e);
-        }
-    }
 }
 
 // Initialize the app when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-    window.intuivaApp = new IntuivaApp();
+    try {
+        window.intuivaApp = new IntuivaApp();
+    } catch (error) {
+        console.error('Failed to initialize IntuivaApp:', error);
+        alert('Failed to initialize the application. Please refresh the page.');
+    }
 });
