@@ -1,222 +1,266 @@
 // data.js - Contains both English and Turkish questions
 const QUESTIONS = {
     en: [
-        // Category 1: Understanding Value
+        // Category 1: Understanding Value & Vision
         {
-            category: "Category 1: Understanding Value",
-            text: "Who are the primary and secondary customers/users? (Be specific about roles, not just 'the business.')"
+            category: "1. Project Vision & Value Definition",
+            text: "What is the main problem or opportunity that initiated this project? Describe the core challenge we're addressing."
         },
         {
-            category: "Category 1: Understanding Value",
-            text: "What is the single, most important problem we are solving for them? (Forces focus on the pain point, not a preconceived solution.)"
+            category: "1. Project Vision & Value Definition",
+            text: "Who are the primary users/customers of this project? List their roles, needs, and how they'll interact with the solution."
         },
         {
-            category: "Category 1: Understanding Value",
-            text: "How will we measure value delivered? (Is it revenue, time saved, cost avoided, customer satisfaction (NPS/CSAT), usage metrics?)"
+            category: "1. Project Vision & Value Definition",
+            text: "What are the top 3 business objectives for this project? (e.g., increase revenue by X%, reduce operational time by Y%, improve customer satisfaction score)"
         },
         {
-            category: "Category 1: Understanding Value",
-            text: "What does 'done' or 'success' look like, in measurable terms? (Avoid vague goals like 'improve the system.')"
+            category: "1. Project Vision & Value Definition",
+            text: "How will we measure project success? List specific Key Performance Indicators (KPIs) with target values."
         },
         {
-            category: "Category 1: Understanding Value",
-            text: "What is the smallest thing we can deliver that provides measurable value? (This defines your Minimum Viable Product (MVP) or first iteration.)"
-        },
-        
-        // Category 2: Mapping the VALUE STREAM
-        {
-            category: "Category 2: Mapping the VALUE STREAM",
-            text: "What are the key steps to go from idea to delivered value? (Map the high-level process flow: design, approve, build, test, deploy, support.)"
-        },
-        {
-            category: "Category 2: Mapping the VALUE STREAM",
-            text: "Where are the likely bottlenecks or delays in this process? (e.g., approvals, environment provisioning, third-party dependencies.)"
-        },
-        {
-            category: "Category 2: Mapping the VALUE STREAM",
-            text: "What existing governance, compliance, or reporting steps are required? Can they be streamlined or done in parallel?"
-        },
-        {
-            category: "Category 2: Mapping the VALUE STREAM",
-            text: "What are our dependencies (teams, systems, external vendors)? How can we simplify or decouple them?"
+            category: "1. Project Vision & Value Definition",
+            text: "What is the Minimum Viable Product (MVP)? Describe the smallest version that delivers measurable value to users."
         },
         
-        // Category 3: Establishing FLOW
+        // Category 2: Scope & Deliverables
         {
-            category: "Category 3: Establishing FLOW",
-            text: "How will we organize the team to maintain continuous flow? (Will we use Kanban, short Sprints, etc.?)"
+            category: "2. Scope Definition & Deliverables",
+            text: "What are the main features or capabilities the project must deliver? (List them in priority order)"
         },
         {
-            category: "Category 3: Establishing FLOW",
-            text: "What is our Work In Progress (WIP) limit? (To prevent multitasking and context switching.)"
+            category: "2. Scope Definition & Deliverables",
+            text: "What is explicitly OUT of scope for this project? (To prevent scope creep)"
         },
         {
-            category: "Category 3: Establishing FLOW",
-            text: "How will we make our work and progress visible to all stakeholders? (Physical/digital board, metrics dashboard.)"
+            category: "2. Scope Definition & Deliverables",
+            text: "What are the acceptance criteria for each major deliverable? (How will we know it's complete and working?)"
         },
         {
-            category: "Category 3: Establishing FLOW",
-            text: "What are our agreed-upon 'Definition of Ready' (for starting work) and 'Definition of Done' (for completing work)? (Standardizes quality and prevents half-baked work moving forward.)"
-        },
-        
-        // Category 4: Enabling PULL
-        {
-            category: "Category 4: Enabling PULL",
-            text: "What is the trigger for us to start new work? (e.g., When an item is prioritized and the team has capacity, not because a plan says 'start Monday.')"
-        },
-        {
-            category: "Category 4: Enabling PULL",
-            text: "How will we prioritize the backlog? (By value, cost of delay, risk reduction? Who is the final decision-maker - Product Owner?)"
-        },
-        {
-            category: "Category 4: Enabling PULL",
-            text: "Do we have the authority to delay or reject low-value work that is pushed onto the team?"
+            category: "2. Scope Definition & Deliverables",
+            text: "What are the quality standards for deliverables? (Performance requirements, security standards, accessibility compliance, etc.)"
         },
         
-        // Category 5: Pursuing PERFECTION (Continuous Improvement - Kaizen)
+        // Category 3: Stakeholders & Communication
         {
-            category: "Category 5: Pursuing PERFECTION",
-            text: "How and when will we gather feedback from customers/users? (Continuous demos, beta releases, analytics?)"
+            category: "3. Stakeholder Management",
+            text: "Who are the key stakeholders? (Decision-makers, influencers, end-users, support teams)"
         },
         {
-            category: "Category 5: Pursuing PERFECTION",
-            text: "How will we conduct retrospectives/improvement cycles? (Regularly, with a focus on process experiments, not just blame.)"
+            category: "3. Stakeholder Management",
+            text: "What are the communication needs for each stakeholder group? (Frequency, format, level of detail)"
         },
         {
-            category: "Category 5: Pursuing PERFECTION",
-            text: "What key metrics will we track for the process itself? (e.g., Lead Time, Cycle Time, Throughput, Blocked Time, Rework rate.)"
+            category: "3. Stakeholder Management",
+            text: "Who has final approval authority for scope changes? (Change Control Board or individual)"
         },
         {
-            category: "Category 5: Pursuing PERFECTION",
-            text: "What is our mechanism for incorporating lessons learned during the project, not just at the end?"
+            category: "3. Stakeholder Management",
+            text: "How will we manage stakeholder expectations and keep them engaged throughout the project?"
         },
         
-        // Category 6: Team & Mindset
+        // Category 4: Team & Resources
         {
-            category: "Category 6: Team & Mindset",
-            text: "Is the leadership/sponsor aligned on a Lean approach? (Are they prepared for early transparency, changing priorities based on learning, and empowering the team?)"
+            category: "4. Team Structure & Resources",
+            text: "What roles are needed on the project team? (Developers, designers, testers, business analysts, etc.)"
         },
         {
-            category: "Category 6: Team & Mindset",
-            text: "How will we empower the team to identify and eliminate waste daily?"
+            category: "4. Team Structure & Resources",
+            text: "What skills are currently available vs. what needs to be acquired/trained?"
         },
         {
-            category: "Category 6: Team & Mindset",
-            text: "Do we have the right mix of skills to deliver the MVP, or do we need to plan for learning/coaching?"
+            category: "4. Team Structure & Resources",
+            text: "What tools and technologies will we use? (Development tools, project management software, communication platforms)"
         },
         {
-            category: "Category 6: Team & Mindset",
-            text: "What is the biggest risk to delivering value early and often? (Technical, political, resource-based?)"
+            category: "4. Team Structure & Resources",
+            text: "What is the budget allocation? (People costs, software licenses, hardware, training, contingency)"
+        },
+        
+        // Category 5: Timeline & Milestones
+        {
+            category: "5. Timeline & Milestone Planning",
+            text: "What are the key project milestones? (With target dates for major deliverables)"
+        },
+        {
+            category: "5. Timeline & Milestone Planning",
+            text: "What is the estimated timeline for MVP delivery and full project completion?"
+        },
+        {
+            category: "5. Timeline & Milestone Planning",
+            text: "What are the critical path activities? (Tasks that directly impact the project end date)"
+        },
+        {
+            category: "5. Timeline & Milestone Planning",
+            text: "How will we track and report progress? (Weekly status updates, burndown charts, dashboard metrics)"
+        },
+        
+        // Category 6: Risks & Dependencies
+        {
+            category: "6. Risk Management & Dependencies",
+            text: "What are the top 5 risks to project success? (Technical, resource, timeline, stakeholder, external factors)"
+        },
+        {
+            category: "6. Risk Management & Dependencies",
+            text: "What mitigation strategies do we have for each major risk?"
+        },
+        {
+            category: "6. Risk Management & Dependencies",
+            text: "What are the key dependencies? (Other teams, third-party vendors, regulatory approvals)"
+        },
+        {
+            category: "6. Risk Management & Dependencies",
+            text: "What is our contingency plan if critical resources become unavailable?"
+        },
+        
+        // Category 7: Process & Methodology
+        {
+            category: "7. Project Process & Methodology",
+            text: "What project methodology will we use? (Agile, Scrum, Kanban, Waterfall, Hybrid)"
+        },
+        {
+            category: "7. Project Process & Methodology",
+            text: "What is our work cadence? (Sprint length for Agile, phase gates for Waterfall)"
+        },
+        {
+            category: "7. Project Process & Methodology",
+            text: "What are our Definition of Ready (DoR) and Definition of Done (DoD) criteria?"
+        },
+        {
+            category: "7. Project Process & Methodology",
+            text: "How will we conduct retrospectives and implement process improvements?"
         }
     ],
     
     tr: [
-        // Kategori 1: Değeri Anlama
+        // Kategori 1: Proje Vizyonu ve Değer Tanımı
         {
-            category: "Kategori 1: Değeri Anlama",
-            text: "Birincil ve ikincil müşteriler/kullanıcılar kimlerdir? (Roller hakkında spesifik olun, sadece 'iş' değil.)"
+            category: "1. Proje Vizyonu ve Değer Tanımı",
+            text: "Bu projeyi başlatan ana problem veya fırsat nedir? Ele aldığımız temel zorluğu açıklayın."
         },
         {
-            category: "Kategori 1: Değeri Anlama",
-            text: "Onlar için çözdüğümüz tek, en önemli sorun nedir? (Önceden belirlenmiş bir çözüme değil, acı noktasına odaklanmayı zorunlu kılar.)"
+            category: "1. Proje Vizyonu ve Değer Tanımı",
+            text: "Bu projenin birincil kullanıcıları/müşterileri kimlerdir? Rollerini, ihtiyaçlarını ve çözümle nasıl etkileşime gireceklerini listeleyin."
         },
         {
-            category: "Kategori 1: Değeri Anlama",
-            text: "Teslim edilen değeri nasıl ölçeceğiz? (Gelir, tasarruf edilen zaman, önlenen maliyet, müşteri memnuniyeti (NPS/CSAT), kullanım metrikleri mi?)"
+            category: "1. Proje Vizyonu ve Değer Tanımı",
+            text: "Bu projenin ilk 3 iş hedefi nedir? (örn., geliri X% artırmak, operasyonel süreyi Y% azaltmak, müşteri memnuniyet puanını iyileştirmek)"
         },
         {
-            category: "Kategori 1: Değeri Anlama",
-            text: "Ölçülebilir terimlerle 'tamamlandı' veya 'başarı' neye benziyor? ('Sistemi iyileştir' gibi belirsiz hedeflerden kaçının.)"
+            category: "1. Proje Vizyonu ve Değer Tanımı",
+            text: "Proje başarısını nasıl ölçeceğiz? Hedef değerleriyle birlikte spesifik Ana Performans Göstergelerini (KPI) listeleyin."
         },
         {
-            category: "Kategori 1: Değeri Anlama",
-            text: "Ölçülebilir değer sağlayan sunabileceğimiz en küçük şey nedir? (Bu, Minimum Uygulanabilir Ürününüzü (MVP) veya ilk yinelemenizi tanımlar.)"
-        },
-        
-        // Kategori 2: DEĞER AKIŞINI Haritalama
-        {
-            category: "Kategori 2: DEĞER AKIŞINI Haritalama",
-            text: "Fikirden teslim edilen değere gitmek için anahtar adımlar nelerdir? (Üst düzey süreç akışını haritalayın: tasarım, onay, inşa, test, dağıtım, destek.)"
-        },
-        {
-            category: "Kategori 2: DEĞER AKIŞINI Haritalama",
-            text: "Bu süreçte olası darboğazlar veya gecikmeler nerede? (örn., onaylar, ortam sağlama, üçüncü taraf bağımlılıkları.)"
-        },
-        {
-            category: "Kategori 2: DEĞER AKIŞINI Haritalama",
-            text: "Hangi mevcut yönetişim, uyumluluk veya raporlama adımları gereklidir? Basitleştirilebilir veya paralel yapılabilir mi?"
-        },
-        {
-            category: "Kategori 2: DEĞER AKIŞINI Haritalama",
-            text: "Bağımlılıklarımız neler (ekipler, sistemler, harici satıcılar)? Bunları nasıl basitleştirebilir veya ayırabiliriz?"
+            category: "1. Proje Vizyonu ve Değer Tanımı",
+            text: "Minimum Uygulanabilir Ürün (MVP) nedir? Kullanıcılara ölçülebilir değer sunan en küçük versiyonu tanımlayın."
         },
         
-        // Kategori 3: AKIŞ'ı Oluşturma
+        // Kategori 2: Kapsam ve Teslimatlar
         {
-            category: "Kategori 3: AKIŞ'ı Oluşturma",
-            text: "Sürekli akışı sürdürmek için ekibi nasıl organize edeceğiz? (Kanban, kısa Sprint'ler vb. kullanacak mıyız?)"
+            category: "2. Kapsam Tanımı ve Teslimatlar",
+            text: "Projenin teslim etmesi gereken ana özellikler veya yetenekler nelerdir? (Öncelik sırasına göre listeleyin)"
         },
         {
-            category: "Kategori 3: AKIŞ'ı Oluşturma",
-            text: "Devam Eden İş (WIP) limitimiz nedir? (Çoklu görev ve bağlam değiştirmeyi önlemek için.)"
+            category: "2. Kapsam Tanımı ve Teslimatlar",
+            text: "Bu projenin kapsamı DIŞINDA neler var? (Kapsam sürünmesini önlemek için)"
         },
         {
-            category: "Kategori 3: AKIŞ'ı Oluşturma",
-            text: "İşimizi ve ilerlememizi tüm paydaşlara nasıl görünür kılacağız? (Fiziksel/dijital pano, metrikler panosu.)"
+            category: "2. Kapsam Tanımı ve Teslimatlar",
+            text: "Her ana teslimat için kabul kriterleri nelerdir? (Tamamlandığını ve çalıştığını nasıl bileceğiz?)"
         },
         {
-            category: "Kategori 3: AKIŞ'ı Oluşturma",
-            text: "Üzerinde anlaştığımız 'Hazır Tanımı' (işe başlamak için) ve 'Tamamlandı Tanımı' (işi tamamlamak için) nedir? (Kaliteyi standartlaştırır ve yarı pişmiş işin ilerlemesini önler.)"
-        },
-        
-        // Kategori 4: ÇEKME'yi Etkinleştirme
-        {
-            category: "Kategori 4: ÇEKME'yi Etkinleştirme",
-            text: "Yeni işe başlamamız için tetikleyici nedir? (örn., Bir öğe önceliklendirildiğinde ve ekip kapasitesi olduğunda, bir plan 'Pazartesi başla' dediği için değil.)"
-        },
-        {
-            category: "Kategori 4: ÇEKME'yi Etkinleştirme",
-            text: "İş listesini nasıl önceliklendireceğiz? (Değere, gecikme maliyetine, risk azaltmaya göre? Son karar verici kim - Ürün Sahibi?)"
-        },
-        {
-            category: "Kategori 4: ÇEKME'yi Etkinleştirme",
-            text: "Ekibe zorla yaptırılan düşük değerli işi geciktirme veya reddetme yetkimiz var mı?"
+            category: "2. Kapsam Tanımı ve Teslimatlar",
+            text: "Teslimatlar için kalite standartları nelerdir? (Performans gereksinimleri, güvenlik standartları, erişilebilirlik uyumluluğu vb.)"
         },
         
-        // Kategori 5: MÜKEMMELLİK Peşinde (Sürekli İyileştirme - Kaizen)
+        // Kategori 3: Paydaşlar ve İletişim
         {
-            category: "Kategori 5: MÜKEMMELLİK Peşinde",
-            text: "Müşterilerden/kullanıcılardan geri bildirimi nasıl ve ne zaman toplayacağız? (Sürekli demolar, beta sürümleri, analitikler?)"
+            category: "3. Paydaş Yönetimi",
+            text: "Ana paydaşlar kimlerdir? (Karar vericiler, etkileyiciler, son kullanıcılar, destek ekipleri)"
         },
         {
-            category: "Kategori 5: MÜKEMMELLİK Peşinde",
-            text: "Geriye dönük değerlendirmeleri/iyileştirme döngülerini nasıl yürüteceğiz? (Düzenli olarak, sadece suçlamaya değil, süreç deneylerine odaklanarak.)"
+            category: "3. Paydaş Yönetimi",
+            text: "Her paydaş grubu için iletişim ihtiyaçları nelerdir? (Sıklık, format, detay seviyesi)"
         },
         {
-            category: "Kategori 5: MÜKEMMELLİK Peşinde",
-            text: "Sürecin kendisi için hangi anahtar metrikleri takip edeceğiz? (örn., Teslim Süresi, Döngü Süresi, Verim, Bloke Süre, Yeniden Çalışma oranı.)"
+            category: "3. Paydaş Yönetimi",
+            text: "Kapsam değişiklikleri için son onay yetkisi kime ait? (Değişim Kontrol Kurulu veya birey)"
         },
         {
-            category: "Kategori 5: MÜKEMMELLİK Peşinde",
-            text: "Proje sırasında öğrenilen dersleri dahil etme mekanizmamız nedir, sadece sonunda değil?"
+            category: "3. Paydaş Yönetimi",
+            text: "Paydaş beklentilerini nasıl yöneteceğiz ve proje boyunca nasıl ilgili tutacağız?"
         },
         
-        // Kategori 6: Ekip & Zihniyet
+        // Kategori 4: Ekip ve Kaynaklar
         {
-            category: "Kategori 6: Ekip & Zihniyet",
-            text: "Liderlik/sponsor Yalın bir yaklaşımda hizalanmış mı? (Erken şeffaflık, öğrenmeye dayalı öncelikleri değiştirme ve ekibi güçlendirme konusunda hazırlar mı?)"
+            category: "4. Ekip Yapısı ve Kaynaklar",
+            text: "Proje ekibinde hangi rollere ihtiyaç var? (Geliştiriciler, tasarımcılar, testçiler, iş analistleri vb.)"
         },
         {
-            category: "Kategori 6: Ekip & Zihniyet",
-            text: "Ekibi günlük olarak israfı belirlemeye ve ortadan kaldırmaya nasıl yetkilendireceğiz?"
+            category: "4. Ekip Yapısı ve Kaynaklar",
+            text: "Hangi beceriler şu anda mevcut vs. hangilerinin kazanılması/eğitilmesi gerekiyor?"
         },
         {
-            category: "Kategori 6: Ekip & Zihniyet",
-            text: "MVP'yi teslim etmek için doğru beceri karışımına sahip miyiz yoksa öğrenme/koçluk için plan yapmamız gerekiyor mu?"
+            category: "4. Ekip Yapısı ve Kaynaklar",
+            text: "Hangi araç ve teknolojileri kullanacağız? (Geliştirme araçları, proje yönetimi yazılımı, iletişim platformları)"
         },
         {
-            category: "Kategori 6: Ekip & Zihniyet",
-            text: "Değeri erken ve sık teslim etmenin en büyük riski nedir? (Teknik, politik, kaynak temelli?)"
+            category: "4. Ekip Yapısı ve Kaynaklar",
+            text: "Bütçe tahsisi nasıl? (Personel maliyetleri, yazılım lisansları, donanım, eğitim, yedek bütçe)"
+        },
+        
+        // Kategori 5: Zaman Çizelgesi ve Kilometre Taşları
+        {
+            category: "5. Zaman Çizelgesi ve Kilometre Taşı Planlaması",
+            text: "Projenin ana kilometre taşları nelerdir? (Büyük teslimatlar için hedef tarihlerle)"
+        },
+        {
+            category: "5. Zaman Çizelgesi ve Kilometre Taşı Planlaması",
+            text: "MVP teslimi ve tam proje tamamlanması için tahmini zaman çizelgesi nedir?"
+        },
+        {
+            category: "5. Zaman Çizelgesi ve Kilometre Taşı Planlaması",
+            text: "Kritik yol aktiviteleri nelerdir? (Proje bitiş tarihini doğrudan etkileyen görevler)"
+        },
+        {
+            category: "5. Zaman Çizelgesi ve Kilometre Taşı Planlaması",
+            text: "İlerlemeyi nasıl takip edip raporlayacağız? (Haftalık durum güncellemeleri, burndown grafikleri, pano metrikleri)"
+        },
+        
+        // Kategori 6: Riskler ve Bağımlılıklar
+        {
+            category: "6. Risk Yönetimi ve Bağımlılıklar",
+            text: "Proje başarısı için ilk 5 risk nedir? (Teknik, kaynak, zaman çizelgesi, paydaş, dış faktörler)"
+        },
+        {
+            category: "6. Risk Yönetimi ve Bağımlılıklar",
+            text: "Her ana risk için hangi azaltma stratejilerimiz var?"
+        },
+        {
+            category: "6. Risk Yönetimi ve Bağımlılıklar",
+            text: "Ana bağımlılıklar nelerdir? (Diğer ekipler, üçüncü taraf tedarikçiler, düzenleyici onaylar)"
+        },
+        {
+            category: "6. Risk Yönetimi ve Bağımlılıklar",
+            text: "Kritik kaynaklar kullanılamaz hale gelirse yedek planımız nedir?"
+        },
+        
+        // Kategori 7: Süreç ve Metodoloji
+        {
+            category: "7. Proje Süreci ve Metodoloji",
+            text: "Hangi proje metodolojisini kullanacağız? (Çevik, Scrum, Kanban, Şelale, Hibrit)"
+        },
+        {
+            category: "7. Proje Süreci ve Metodoloji",
+            text: "Çalışma ritmimiz nedir? (Çevik için sprint uzunluğu, Şelale için faz geçişleri)"
+        },
+        {
+            category: "7. Proje Süreci ve Metodoloji",
+            text: "Hazır Olma Tanımı (DoR) ve Tamamlanma Tanımı (DoD) kriterlerimiz nelerdir?"
+        },
+        {
+            category: "7. Proje Süreci ve Metodoloji",
+            text: "Retrospektifleri nasıl yürüteceğiz ve süreç iyileştirmelerini nasıl uygulayacağız?"
         }
     ]
 };
