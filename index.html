@@ -2,7 +2,7 @@
 <html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title data-i18n="app.title">Intuiva - AI-Powered Project Management</title>
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.json">
@@ -10,6 +10,101 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <meta name="theme-color" content="#0a0a0f">
     <meta name="description" content="AI-powered project management with smart task generation and Kanban boards">
+    
+    <!-- New: Guide Animation Styles -->
+    <style>
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        @keyframes slideInFromRight {
+            from { transform: translateX(100px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        
+        @keyframes highlight {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.7); }
+            50% { box-shadow: 0 0 0 10px rgba(139, 92, 246, 0); }
+        }
+        
+        .guide-indicator {
+            position: fixed;
+            background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: var(--radius-full);
+            font-size: 0.875rem;
+            font-weight: 500;
+            z-index: 9999;
+            box-shadow: var(--shadow-lg);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            animation: bounce 2s infinite, slideInFromRight 0.5s ease-out;
+            pointer-events: none;
+        }
+        
+        .keyboard-shortcut {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 0.125rem 0.375rem;
+            border-radius: var(--radius-sm);
+            font-size: 0.75rem;
+            font-family: monospace;
+            margin-left: 0.25rem;
+        }
+        
+        .compact-view {
+            transform-origin: top;
+            transition: transform 0.3s ease;
+        }
+        
+        .compact-view.compact {
+            transform: scale(0.98);
+        }
+        
+        .keyboard-hint {
+            position: absolute;
+            right: 0.5rem;
+            bottom: 0.5rem;
+            font-size: 0.75rem;
+            color: var(--color-text-muted);
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            background: var(--color-surface-light);
+            padding: 0.125rem 0.375rem;
+            border-radius: var(--radius-sm);
+        }
+        
+        .scroll-hint {
+            position: absolute;
+            bottom: 1rem;
+            left: 50%;
+            transform: translateX(-50%);
+            color: var(--color-primary);
+            font-size: 0.875rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            animation: pulse 2s infinite;
+            background: var(--color-surface);
+            padding: 0.5rem 1rem;
+            border-radius: var(--radius-full);
+            border: 1px solid var(--color-border);
+        }
+        
+        .highlight {
+            animation: highlight 2s infinite;
+            border-color: var(--color-primary) !important;
+        }
+    </style>
 </head>
 <body>
     <!-- Navigation -->
@@ -20,6 +115,11 @@
                 <h1 data-i18n="nav.brand">Intuiva</h1>
                 <span class="tagline" data-i18n="nav.tagline">AI Project Management</span>
             </a>
+            
+            <!-- Project Name Display -->
+            <div class="project-name-display" id="projectNameDisplay" style="display: none;">
+                <span id="currentProjectName">Untitled Project</span>
+            </div>
             
             <div class="nav-actions">
                 <!-- Saved Projects Dropdown -->
@@ -62,12 +162,17 @@
                 <button id="helpBtn" class="btn-icon" data-i18n-title="nav.help" aria-label="Help" title="Help">
                     <i class="fas fa-question-circle"></i>
                 </button>
+                
+                <!-- Compact View Toggle -->
+                <button id="compactToggle" class="btn-icon" title="Compact view" data-i18n-title="button.compact">
+                    <i class="fas fa-compress-alt"></i>
+                </button>
             </div>
         </div>
     </nav>
 
-    <!-- Main App Container -->
-    <main class="app-container">
+    <!-- Main App Container - Now with compact mode -->
+    <main class="app-container compact-view">
         <!-- Onboarding Screen -->
         <section id="onboarding" class="screen active">
             <div class="onboarding-container">
@@ -81,8 +186,42 @@
                         Answer a few questions about your project, and we'll automatically create a complete Kanban board 
                         with AI-generated tasks optimized for your workflow. Get actionable insights and professional project reports.
                     </p>
+                    
+                    <!-- Quick Start Guide -->
+                    <div class="quick-guide" style="margin: 1.5rem auto; max-width: 600px;">
+                        <div style="display: flex; align-items: center; justify-content: center; gap: 2rem; flex-wrap: wrap;">
+                            <div style="text-align: center;">
+                                <div style="width: 40px; height: 40px; background: var(--color-primary); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 0.5rem;">
+                                    <i class="fas fa-play"></i>
+                                </div>
+                                <small style="color: var(--color-text-muted);">Click Start</small>
+                            </div>
+                            <div style="color: var(--color-text-muted);"><i class="fas fa-arrow-right"></i></div>
+                            <div style="text-align: center;">
+                                <div style="width: 40px; height: 40px; background: var(--color-primary); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 0.5rem;">
+                                    <i class="fas fa-edit"></i>
+                                </div>
+                                <small style="color: var(--color-text-muted);">Answer Questions</small>
+                            </div>
+                            <div style="color: var(--color-text-muted);"><i class="fas fa-arrow-right"></i></div>
+                            <div style="text-align: center;">
+                                <div style="width: 40px; height: 40px; background: var(--color-primary); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 0.5rem;">
+                                    <i class="fas fa-tasks"></i>
+                                </div>
+                                <small style="color: var(--color-text-muted);">Get Tasks</small>
+                            </div>
+                            <div style="color: var(--color-text-muted);"><i class="fas fa-arrow-right"></i></div>
+                            <div style="text-align: center;">
+                                <div style="width: 40px; height: 40px; background: var(--color-primary); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 0.5rem;">
+                                    <i class="fas fa-chart-line"></i>
+                                </div>
+                                <small style="color: var(--color-text-muted);">Generate Report</small>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 
+                <!-- Compact Stats -->
                 <div class="onboarding-stats">
                     <div class="stat-card">
                         <i class="fas fa-bolt"></i>
@@ -117,6 +256,11 @@
                     </button>
                 </div>
                 
+                <!-- Keyboard Shortcuts Hint -->
+                <div class="keyboard-hints" style="margin-top: 1.5rem; text-align: center; color: var(--color-text-muted); font-size: 0.875rem;">
+                    <p>Pro tip: Press <kbd>Enter</kbd> to move between questions, <kbd>Ctrl+Enter</kbd> to submit</p>
+                </div>
+                
                 <!-- Local Storage Warning -->
                 <div class="local-storage-warning">
                     <h4><i class="fas fa-exclamation-triangle"></i> <span data-i18n="storage.warning">Important: Local Storage Notice</span></h4>
@@ -137,7 +281,7 @@
             </div>
         </section>
 
-        <!-- Questionnaire Screen -->
+        <!-- Questionnaire Screen - Enhanced with better guidance -->
         <section id="questionnaire" class="screen">
             <div class="questionnaire-container">
                 <div class="questionnaire-header">
@@ -150,6 +294,16 @@
                     
                     <div class="category-indicator">
                         <span id="categoryTitle" data-i18n="question.category">Category 1: Understanding Value</span>
+                    </div>
+                    
+                    <!-- Question Navigation -->
+                    <div class="question-nav-buttons" style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+                        <button id="jumpToStartBtn" class="btn btn-text btn-small" title="Jump to first question">
+                            <i class="fas fa-fast-backward"></i>
+                        </button>
+                        <button id="jumpToEndBtn" class="btn btn-text btn-small" title="Jump to last question">
+                            <i class="fas fa-fast-forward"></i>
+                        </button>
                     </div>
                 </div>
 
@@ -165,19 +319,26 @@
                             <textarea 
                                 id="answerInput" 
                                 placeholder="Type your answer here... (Press Enter for new line, Ctrl+Enter to submit)"
-                                rows="4"
+                                rows="3"
+                                maxlength="1000"
                             ></textarea>
                             <div class="answer-actions">
-                                <span class="char-count" id="charCount">0/500</span>
+                                <span class="char-count" id="charCount">0/1000</span>
                                 <button id="clearBtn" class="btn btn-text">
                                     <i class="fas fa-times"></i> <span data-i18n="button.clear">Clear</span>
                                 </button>
                             </div>
                         </div>
 
-                        <div class="question-note">
+                        <div class="question-note" id="questionTip">
                             <i class="fas fa-lightbulb"></i>
-                            <span data-i18n="question.tip">💡 Tip: Be specific. Your answers will help generate relevant tasks and create a comprehensive project report.</span>
+                            <span id="tipText" data-i18n="question.tip">💡 Tip: Be specific. Your answers will help generate relevant tasks and create a comprehensive project report.</span>
+                        </div>
+                        
+                        <!-- Keyboard Hint -->
+                        <div class="keyboard-hint">
+                            <i class="fas fa-keyboard"></i>
+                            <span>Press <kbd>Enter</kbd> for next question</span>
                         </div>
                     </div>
                 </div>
@@ -194,20 +355,33 @@
                         <button id="notAnswerBtn" class="btn btn-outline" data-i18n="button.notAnswer">
                             Not Applicable
                         </button>
+                        <button id="saveAndContinueBtn" class="btn btn-outline" data-i18n="button.saveContinue">
+                            Save & Continue Later
+                        </button>
                     </div>
                     
                     <button id="nextBtn" class="btn btn-primary">
                         <span data-i18n="button.next">Next</span> <i class="fas fa-arrow-right"></i>
                     </button>
                 </div>
+                
+                <!-- Question Progress Dots -->
+                <div class="question-dots" style="display: flex; justify-content: center; gap: 0.25rem; margin-top: 1.5rem; flex-wrap: wrap;">
+                    <!-- Will be populated by JavaScript -->
+                </div>
             </div>
         </section>
 
-        <!-- Kanban Board Screen -->
+        <!-- Kanban Board Screen - More Compact -->
         <section id="kanbanBoard" class="screen">
             <div class="kanban-header">
                 <div class="board-info">
-                    <h2 id="boardTitle" data-i18n="board.title">Project Board</h2>
+                    <div style="display: flex; align-items: center; gap: 1rem;">
+                        <h2 id="boardTitle" data-i18n="board.title">Project Board</h2>
+                        <button id="renameProjectBtn" class="btn-icon" title="Rename project">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                    </div>
                     <div class="board-stats">
                         <span class="stat">
                             <i class="fas fa-tasks"></i>
@@ -228,26 +402,39 @@
                     </div>
                 </div>
                 
+                <!-- Compact Board Actions -->
                 <div class="board-actions">
-                    <button id="backToQuestionsBtn" class="btn btn-outline">
-                        <i class="fas fa-arrow-left"></i> <span data-i18n="button.backToQuestions">Back to Questions</span>
-                    </button>
-                    <button id="addTaskBtn" class="btn btn-primary">
-                        <i class="fas fa-plus"></i> <span data-i18n="button.addTask">Add Task</span>
-                    </button>
-                    <button id="clearAllBtn" class="btn btn-outline">
-                        <i class="fas fa-trash"></i> <span data-i18n="button.clearAll">Clear All</span>
-                    </button>
-                    <button id="regenerateBtn" class="btn btn-outline">
-                        <i class="fas fa-robot"></i> <span data-i18n="button.regenerate">Regenerate Tasks</span>
-                    </button>
-                    <button id="saveProjectBtn" class="btn btn-outline">
-                        <i class="fas fa-save"></i> <span data-i18n="button.saveProject">Save Project</span>
-                    </button>
+                    <div class="action-group" style="display: flex; gap: 0.5rem;">
+                        <button id="backToQuestionsBtn" class="btn btn-outline" title="Back to questionnaire">
+                            <i class="fas fa-arrow-left"></i>
+                        </button>
+                        <button id="addTaskBtn" class="btn btn-primary" title="Add new task">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                        <div class="dropdown" style="position: relative;">
+                            <button class="btn btn-outline" title="More actions">
+                                <i class="fas fa-ellipsis-v"></i>
+                            </button>
+                            <div class="dropdown-menu" style="display: none; position: absolute; top: 100%; right: 0; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 0.5rem; z-index: 1000; min-width: 150px;">
+                                <button id="clearAllBtn" class="btn-text" style="width: 100%; justify-content: flex-start;">
+                                    <i class="fas fa-trash"></i> <span data-i18n="button.clearAll">Clear All</span>
+                                </button>
+                                <button id="regenerateBtn" class="btn-text" style="width: 100%; justify-content: flex-start;">
+                                    <i class="fas fa-robot"></i> <span data-i18n="button.regenerate">Regenerate</span>
+                                </button>
+                                <button id="saveProjectBtn" class="btn-text" style="width: 100%; justify-content: flex-start;">
+                                    <i class="fas fa-save"></i> <span data-i18n="button.saveProject">Save</span>
+                                </button>
+                                <button id="exportProjectBtn" class="btn-text" style="width: 100%; justify-content: flex-start;">
+                                    <i class="fas fa-file-export"></i> <span data-i18n="button.exportProject">Export</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <!-- Kanban Columns -->
+            <!-- Compact Kanban Columns -->
             <div class="kanban-container">
                 <div class="kanban-column" data-status="todo">
                     <div class="column-header">
@@ -295,19 +482,19 @@
                 </div>
             </div>
             
-            <!-- Project Report Section -->
+            <!-- Project Report Section - Collapsible -->
             <div class="project-report">
                 <div class="project-report-header">
-                    <h3><i class="fas fa-file-alt"></i> <span data-i18n="report.title">AI Project Report</span></h3>
+                    <div style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;" id="reportToggle">
+                        <h3><i class="fas fa-file-alt"></i> <span data-i18n="report.title">AI Project Report</span></h3>
+                        <i class="fas fa-chevron-down" id="reportToggleIcon"></i>
+                    </div>
                     <div class="report-actions">
                         <button id="generateReportBtn" class="btn btn-primary">
-                            <i class="fas fa-robot"></i> <span data-i18n="button.generateReport">Generate Report</span>
+                            <i class="fas fa-robot"></i> <span data-i18n="button.generateReport">Generate</span>
                         </button>
                         <button id="downloadPdfBtn" class="btn btn-outline" disabled>
-                            <i class="fas fa-download"></i> <span data-i18n="button.downloadPdf">Download PDF</span>
-                        </button>
-                        <button id="exportProjectBtn" class="btn btn-outline">
-                            <i class="fas fa-file-export"></i> <span data-i18n="button.exportProject">Export Project</span>
+                            <i class="fas fa-download"></i> <span data-i18n="button.downloadPdf">PDF</span>
                         </button>
                     </div>
                 </div>
@@ -321,9 +508,23 @@
                     </div>
                 </div>
             </div>
+            
+            <!-- Quick Actions Bar -->
+            <div class="quick-actions-bar" style="position: fixed; bottom: 1rem; right: 1rem; display: flex; gap: 0.5rem; z-index: 100;">
+                <button id="quickAddTask" class="btn btn-primary btn-circle" title="Quick add task">
+                    <i class="fas fa-plus"></i>
+                </button>
+                <button id="quickReport" class="btn btn-outline btn-circle" title="Quick report">
+                    <i class="fas fa-chart-line"></i>
+                </button>
+                <button id="quickSave" class="btn btn-outline btn-circle" title="Quick save">
+                    <i class="fas fa-save"></i>
+                </button>
+            </div>
         </section>
     </main>
 
+    <!-- Modals (unchanged but included for completeness) -->
     <!-- Task Modal -->
     <div id="taskModal" class="modal">
         <div class="modal-content">
@@ -375,7 +576,7 @@
         </div>
     </div>
 
-    <!-- Project Save Modal -->
+    <!-- Project Save Modal - Enhanced with naming choice -->
     <div id="saveProjectModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -389,10 +590,18 @@
                     <div class="form-group">
                         <label for="projectName" data-i18n="form.projectName">Project Name *</label>
                         <input type="text" id="projectName" required placeholder="Enter project name">
+                        <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+                            <button type="button" class="btn btn-text btn-small" id="suggestNameBtn">
+                                <i class="fas fa-magic"></i> Suggest Name
+                            </button>
+                            <button type="button" class="btn btn-text btn-small" id="useCurrentDateBtn">
+                                <i class="fas fa-calendar"></i> Use Date
+                            </button>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label for="projectDescription" data-i18n="form.description">Description</label>
-                        <textarea id="projectDescription" rows="3" placeholder="Describe your project..."></textarea>
+                        <textarea id="projectDescription" rows="2" placeholder="Describe your project..."></textarea>
                     </div>
                     <div class="form-group">
                         <label for="projectTags" data-i18n="form.tags">Tags (comma-separated)</label>
@@ -588,6 +797,51 @@
             .saved-projects-list {
                 max-height: 400px;
                 overflow-y: auto;
+            }
+            
+            .project-name-display {
+                background: var(--color-surface-light);
+                padding: 0.375rem 0.75rem;
+                border-radius: var(--radius-md);
+                font-size: 0.875rem;
+                font-weight: 500;
+                border: 1px solid var(--color-border);
+                max-width: 200px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            
+            .btn-circle {
+                width: 3rem;
+                height: 3rem;
+                border-radius: 50%;
+                padding: 0;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            
+            .question-dot {
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+                background: var(--color-border);
+                cursor: pointer;
+                transition: all var(--transition-fast);
+            }
+            
+            .question-dot.active {
+                background: var(--color-primary);
+                transform: scale(1.2);
+            }
+            
+            .question-dot.answered {
+                background: var(--color-success);
+            }
+            
+            .question-dot.skipped {
+                background: var(--color-warning);
             }
         `;
         document.head.appendChild(style);
