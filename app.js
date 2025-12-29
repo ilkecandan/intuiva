@@ -11,243 +11,248 @@ class IntuivaApp {
     }
     
 
-init() {
-    // Initialize screens
-    this.screens = {
-        onboarding: document.getElementById('onboarding'),
-        questionnaire: document.getElementById('questionnaire'),
-        kanbanBoard: document.getElementById('kanbanBoard')
-    };
-    
-    // Initialize buttons
-    this.initButtons();
-    
-    // Initialize navigation
-    this.initNavigation();
-    
-    // Initialize questionnaire
-    this.initQuestionnaire();
-    
-    // Initialize modals
-    this.initModals();
-    
-    // Initialize drag and drop
-    this.initDragAndDrop();
-    
-    // Show onboarding screen
-    this.showScreen('onboarding');
-    
-    // Check for existing data
-    this.loadFromLocalStorage();
-    
-    // Initialize theme
-    this.initTheme();
-    
-    // Update character counter
-    this.initCharCounter();
-    
-    console.log('Intuiva App initialized successfully');
-}
-
-initButtons() {
-    // Start button
-    document.getElementById('startBtn').addEventListener('click', () => {
-        this.navigateTo('questionnaire');
-        this.loadQuestion(0);
-    });
-    
-    // Skip to board button
-    document.getElementById('skipBtn').addEventListener('click', () => {
-        // Clear all data
-        this.tasks = []; // Empty array
-        this.answers = {}; // Clear answers
-        this.currentQuestionIndex = 0; // Reset question index
+    init() {
+        // Initialize screens
+        this.screens = {
+            onboarding: document.getElementById('onboarding'),
+            questionnaire: document.getElementById('questionnaire'),
+            kanbanBoard: document.getElementById('kanbanBoard')
+        };
         
-        // Clear localStorage to prevent loading old data
-        try {
-            localStorage.removeItem('intuiva-data');
-        } catch (e) {
-            console.warn('Failed to clear localStorage:', e);
+        // Initialize buttons
+        this.initButtons();
+        
+        // Initialize navigation
+        this.initNavigation();
+        
+        // Initialize questionnaire
+        this.initQuestionnaire();
+        
+        // Initialize modals
+        this.initModals();
+        
+        // Initialize drag and drop
+        this.initDragAndDrop();
+        
+        // Show onboarding screen
+        this.showScreen('onboarding');
+        
+        // Check for existing data
+        this.loadFromLocalStorage();
+        
+        // Initialize theme
+        this.initTheme();
+        
+        // Update character counter
+        this.initCharCounter();
+        
+        console.log('Intuiva App initialized successfully');
+    }
+
+    initButtons() {
+        // Start button
+        document.getElementById('startBtn').addEventListener('click', () => {
+            this.navigateTo('questionnaire');
+            this.loadQuestion(0);
+        });
+        
+        // Skip to board button
+        document.getElementById('skipBtn').addEventListener('click', () => {
+            // Clear all data
+            this.tasks = []; // Empty array
+            this.answers = {}; // Clear answers
+            this.currentQuestionIndex = 0; // Reset question index
+            
+            // Clear localStorage to prevent loading old data
+            try {
+                localStorage.removeItem('intuiva-data');
+            } catch (e) {
+                console.warn('Failed to clear localStorage:', e);
+            }
+            
+            // Clear any existing kanban board
+            if (this.kanbanBoard) {
+                this.kanbanBoard.clearTasks();
+            }
+            
+            // Navigate to kanban board
+            this.navigateTo('kanbanBoard');
+
+            // Force an empty board
+            if (this.kanbanBoard) {
+                this.kanbanBoard.tasks = [];
+                this.kanbanBoard.renderTasks();
+                this.updateStats();
+            }
+            
+            this.showToast('Started with empty board', 'info');
+        });
+        
+        // Clear All button (if you added it)
+        if (document.getElementById('clearAllBtn')) {
+            document.getElementById('clearAllBtn').addEventListener('click', () => {
+                if (confirm('Are you sure you want to clear all tasks? This cannot be undone.')) {
+                    this.tasks = [];
+                    if (this.kanbanBoard) {
+                        this.kanbanBoard.clearTasks();
+                    }
+                    this.updateStats();
+                    this.saveToLocalStorage();
+                    this.showToast('All tasks cleared', 'info');
+                }
+            });
         }
         
-        // Clear any existing kanban board
-        if (this.kanbanBoard) {
-            this.kanbanBoard.clearTasks();
+        // Navigation buttons
+        document.getElementById('prevBtn').addEventListener('click', () => this.prevQuestion());
+        document.getElementById('nextBtn').addEventListener('click', () => this.nextQuestion());
+        
+        // Question action buttons
+        document.getElementById('skipQuestionBtn').addEventListener('click', () => this.skipQuestion());
+        document.getElementById('notAnswerBtn').addEventListener('click', () => this.markAsNotApplicable());
+        document.getElementById('clearBtn').addEventListener('click', () => this.clearAnswer());
+        
+        // Board action buttons
+        document.getElementById('addTaskBtn').addEventListener('click', () => this.openTaskModal());
+        document.getElementById('regenerateBtn').addEventListener('click', () => this.regenerateTasks());
+        document.getElementById('exportBtn').addEventListener('click', () => this.exportBoard());
+        
+        // Add task buttons in columns
+        document.querySelectorAll('.btn-add-task').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const column = e.currentTarget.dataset.column;
+                this.openTaskModal(column);
+            });
+        });
+        
+        // Theme toggle
+        document.getElementById('themeToggle').addEventListener('click', () => this.toggleTheme());
+        
+        // Help button
+        document.getElementById('helpBtn').addEventListener('click', () => {
+            document.getElementById('helpModal').classList.add('active');
+        });
+    }
+
+    initNavigation() {
+        // Navigation buttons
+        document.querySelectorAll('.nav-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const screen = e.currentTarget.dataset.screen;
+                this.navigateTo(screen);
+            });
+        });
+        
+        // Back to questions button
+        document.getElementById('backToQuestionsBtn').addEventListener('click', () => {
+            this.navigateTo('questionnaire');
+        });
+        
+        // Update active nav button based on current screen
+        this.updateActiveNav();
+    }
+
+    navigateTo(screenName) {
+        // Save current answer if we're leaving questionnaire
+        if (this.currentScreen === 'questionnaire') {
+            this.saveAnswer(document.getElementById('answerInput').value);
         }
         
-        // Navigate to kanban board
-        this.navigateTo('kanbanBoard');
-
-        // Force an empty board
-        if (this.kanbanBoard) {
-            this.kanbanBoard.tasks = [];
-            this.kanbanBoard.renderTasks();
+        // Show the requested screen
+        this.showScreen(screenName);
+        
+        // Update current screen
+        this.currentScreen = screenName;
+        
+        // Update active nav button
+        this.updateActiveNav();
+        
+        // If navigating to questionnaire, load current question
+        if (screenName === 'questionnaire') {
+            this.loadQuestion(this.currentQuestionIndex);
+        }
+        
+        // If navigating to kanban, ensure board is initialized WITH CURRENT TASKS
+        if (screenName === 'kanbanBoard') {
+            if (!this.kanbanBoard) {
+                // Initialize with current tasks
+                this.kanbanBoard = new KanbanBoard(this.tasks);
+            } else {
+                // If board already exists, refresh it with current tasks
+                this.kanbanBoard.tasks = this.tasks;
+                this.kanbanBoard.renderTasks(); // Make sure to re-render
+            }
             this.updateStats();
         }
+    }
+
+    updateActiveNav() {
+        // Update nav buttons
+        document.querySelectorAll('.nav-btn').forEach(btn => {
+            if (btn.dataset.screen === this.currentScreen) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+    }
+
+    initQuestionnaire() {
+        this.questions = QUESTIONS;
+        this.totalQuestions = this.questions.length;
         
-        this.showToast('Started with empty board', 'info');
-    });
-    
-    // Clear All button (if you added it)
-    if (document.getElementById('clearAllBtn')) {
-        document.getElementById('clearAllBtn').addEventListener('click', () => {
-            if (confirm('Are you sure you want to clear all tasks? This cannot be undone.')) {
-                this.tasks = [];
-                if (this.kanbanBoard) {
-                    this.kanbanBoard.clearTasks();
-                }
-                this.updateStats();
-                this.saveToLocalStorage();
-                this.showToast('All tasks cleared', 'info');
+        // Initialize answer input event
+        const answerInput = document.getElementById('answerInput');
+        answerInput.addEventListener('input', (e) => {
+            this.saveAnswer(e.target.value);
+            this.updateCharCounter();
+        });
+        
+        // Add keyboard shortcuts
+        answerInput.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key === 'Enter') {
+                e.preventDefault();
+                this.nextQuestion();
+            } else if (e.key === 'Escape') {
+                this.clearAnswer();
             }
         });
     }
-    
-    // Navigation buttons
-    document.getElementById('prevBtn').addEventListener('click', () => this.prevQuestion());
-    document.getElementById('nextBtn').addEventListener('click', () => this.nextQuestion());
-    
-    // Question action buttons
-    document.getElementById('skipQuestionBtn').addEventListener('click', () => this.skipQuestion());
-    document.getElementById('notAnswerBtn').addEventListener('click', () => this.markAsNotApplicable());
-    document.getElementById('clearBtn').addEventListener('click', () => this.clearAnswer());
-    
-    // Board action buttons
-    document.getElementById('addTaskBtn').addEventListener('click', () => this.openTaskModal());
-    document.getElementById('regenerateBtn').addEventListener('click', () => this.regenerateTasks());
-    document.getElementById('exportBtn').addEventListener('click', () => this.exportBoard());
-    
-    // Add task buttons in columns
-    document.querySelectorAll('.btn-add-task').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            const column = e.currentTarget.dataset.column;
-            this.openTaskModal(column);
-        });
-    });
-    
-    // Theme toggle
-    document.getElementById('themeToggle').addEventListener('click', () => this.toggleTheme());
-    
-    // Help button
-    document.getElementById('helpBtn').addEventListener('click', () => {
-        document.getElementById('helpModal').classList.add('active');
-    });
-}
 
-initNavigation() {
-    // Navigation buttons
-    document.querySelectorAll('.nav-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            const screen = e.currentTarget.dataset.screen;
-            this.navigateTo(screen);
-        });
-    });
-    
-    // Back to questions button
-    document.getElementById('backToQuestionsBtn').addEventListener('click', () => {
-        this.navigateTo('questionnaire');
-    });
-    
-    // Update active nav button based on current screen
-    this.updateActiveNav();
-}
-
-navigateTo(screenName) {
-    // Save current answer if we're leaving questionnaire
-    if (this.currentScreen === 'questionnaire') {
-        this.saveAnswer(document.getElementById('answerInput').value);
-    }
-    
-    // Show the requested screen
-    this.showScreen(screenName);
-    
-    // Update current screen
-    this.currentScreen = screenName;
-    
-    // Update active nav button
-    this.updateActiveNav();
-    
-    // If navigating to questionnaire, load current question
-    if (screenName === 'questionnaire') {
-        this.loadQuestion(this.currentQuestionIndex);
-    }
-    
-    // If navigating to kanban, ensure board is initialized
-    if (screenName === 'kanbanBoard') {
-        if (!this.kanbanBoard) {
-            this.kanbanBoard = new KanbanBoard(this.tasks);
-        }
-        this.updateStats();
-    }
-}
-
-updateActiveNav() {
-    // Update nav buttons
-    document.querySelectorAll('.nav-btn').forEach(btn => {
-        if (btn.dataset.screen === this.currentScreen) {
-            btn.classList.add('active');
-        } else {
-            btn.classList.remove('active');
-        }
-    });
-}
-
-initQuestionnaire() {
-    this.questions = QUESTIONS;
-    this.totalQuestions = this.questions.length;
-    
-    // Initialize answer input event
-    const answerInput = document.getElementById('answerInput');
-    answerInput.addEventListener('input', (e) => {
-        this.saveAnswer(e.target.value);
-        this.updateCharCounter();
-    });
-    
-    // Add keyboard shortcuts
-    answerInput.addEventListener('keydown', (e) => {
-        if (e.ctrlKey && e.key === 'Enter') {
-            e.preventDefault();
-            this.nextQuestion();
-        } else if (e.key === 'Escape') {
-            this.clearAnswer();
-        }
-    });
-}
-
-initModals() {
-    // Task modal
-    this.taskModal = document.getElementById('taskModal');
-    this.taskForm = document.getElementById('taskForm');
-    
-    // Close modal buttons
-    document.querySelectorAll('.close-modal').forEach(btn => {
-        btn.addEventListener('click', () => {
-            document.querySelectorAll('.modal').forEach(modal => {
-                modal.classList.remove('active');
-            });
-            this.taskForm.reset();
-        });
-    });
-    
-    // Close modals on outside click
-    document.querySelectorAll('.modal').forEach(modal => {
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) {
-                modal.classList.remove('active');
+    initModals() {
+        // Task modal
+        this.taskModal = document.getElementById('taskModal');
+        this.taskForm = document.getElementById('taskForm');
+        
+        // Close modal buttons
+        document.querySelectorAll('.close-modal').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.modal').forEach(modal => {
+                    modal.classList.remove('active');
+                });
                 this.taskForm.reset();
-            }
+            });
         });
-    });
-    
-    // Task form submission
-    this.taskForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        this.saveTask();
-    });
-    
-    // Help modal
-    this.helpModal = document.getElementById('helpModal');
-}
+        
+        // Close modals on outside click
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.classList.remove('active');
+                    this.taskForm.reset();
+                }
+            });
+        });
+        
+        // Task form submission
+        this.taskForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.saveTask();
+        });
+        
+        // Help modal
+        this.helpModal = document.getElementById('helpModal');
+    }
     
     
     initDragAndDrop() {
@@ -389,98 +394,151 @@ initModals() {
         }
     }
     
-  // In your IntuivaApp class, replace the generateTasksFromAnswers method
-async generateTasksFromAnswers() {
-    if (this.isGeneratingTasks) return;
-    this.isGeneratingTasks = true;
+    // UPDATED: AI-powered task generation
+    async generateTasksFromAnswers() {
+        if (this.isGeneratingTasks) return;
+        this.isGeneratingTasks = true;
 
-    const nextBtn = document.getElementById('nextBtn');
-    const originalHtml = nextBtn.innerHTML;
-    nextBtn.innerHTML = '<div class="loading"></div> Contacting AI...';
-    nextBtn.disabled = true;
+        const nextBtn = document.getElementById('nextBtn');
+        const originalHtml = nextBtn.innerHTML;
+        nextBtn.innerHTML = '<div class="loading"></div> Contacting AI...';
+        nextBtn.disabled = true;
 
-    try {
-        // 1. Prepare data to send
-        const requestData = {
-            answers: this.answers,
-            questions: this.questions // Send questions for full context
-        };
+        try {
+            // 1. Prepare data to send
+            const requestData = {
+                answers: this.answers,
+                questions: this.questions // Send questions for full context
+            };
 
-        // 2. Call YOUR backend endpoint
-        // USE YOUR RAILWAY URL HERE:
-        const response = await fetch('https://intuivabackend-production.up.railway.app/api/generate-tasks', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(requestData)
+            // 2. Call YOUR backend endpoint - UPDATE THIS URL
+            const response = await fetch('https://intuivabackend-production.up.railway.app/api/generate-tasks', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(requestData)
+            });
+
+            const result = await response.json();
+
+            if (result.success && result.tasks && result.tasks.length > 0) {
+                // 3. Use AI-generated tasks
+                this.tasks = result.tasks.map(task => ({
+                    ...task,
+                    id: this.generateId() // Ensure each task has a unique ID
+                }));
+                
+                // CRITICAL: Update the kanban board with new tasks
+                if (this.kanbanBoard) {
+                    // Clear existing tasks first
+                    this.kanbanBoard.clearTasks();
+                    // Add new tasks
+                    this.tasks.forEach(task => {
+                        this.kanbanBoard.addTask(task);
+                    });
+                }
+                
+                this.showToast('AI tasks generated successfully!', 'success');
+            } else {
+                // 4. Fallback to local logic if AI fails
+                throw new Error('AI returned no tasks');
+            }
+
+        } catch (error) {
+            console.warn('AI generation failed, using fallback:', error);
+            this.tasks = this.generateTasksBasedOnAnswers(); // Your existing logic
+            
+            // CRITICAL: Also update board with fallback tasks
+            if (this.kanbanBoard) {
+                this.kanbanBoard.clearTasks();
+                this.tasks.forEach(task => {
+                    this.kanbanBoard.addTask(task);
+                });
+            }
+            
+            this.showToast('Generated tasks from your answers.', 'info');
+        } finally {
+            // 5. Save to localStorage
+            this.saveToLocalStorage();
+            
+            // 6. Navigate to board and update stats
+            this.navigateTo('kanbanBoard');
+            this.updateStats();
+            
+            // 7. Reset button state
+            nextBtn.innerHTML = originalHtml;
+            nextBtn.disabled = false;
+            this.isGeneratingTasks = false;
+        }
+    }
+    
+    generateTasksBasedOnAnswers() {
+        // If there are no answers at all, return empty array
+        const hasValidAnswers = Object.values(this.answers).some(answer => 
+            answer && answer !== '[Skipped]' && answer !== '[Not Applicable]'
+        );
+        
+        if (!hasValidAnswers) {
+            return this.generateDefaultTasks();
+        }
+        
+        const tasks = [];
+        
+        // Analyze answers and generate relevant tasks
+        Object.entries(this.answers).forEach(([index, answer]) => {
+            if (answer === '[Skipped]' || answer === '[Not Applicable]') return;
+            
+            const question = this.questions[parseInt(index)];
+            const category = question.category;
+            
+            // Generate tasks based on category and answer
+            const categoryTasks = this.generateTasksForCategory(category, answer);
+            tasks.push(...categoryTasks);
         });
-
-        const result = await response.json();
-
-        if (result.success && result.tasks.length > 0) {
-            // 3. Use AI-generated tasks
-            this.tasks = result.tasks;
-            this.showToast('AI tasks generated successfully!', 'success');
-        } else {
-            // 4. Fallback to local logic if AI fails
-            throw new Error('AI returned no tasks');
-        }
-
-    } catch (error) {
-        console.warn('AI generation failed, using fallback:', error);
-        this.tasks = this.generateTasksBasedOnAnswers(); // Your existing logic
-        this.showToast('Generated tasks from your answers.', 'info');
-    } finally {
-        // 5. Proceed as before
-        this.navigateTo('kanbanBoard');
-        nextBtn.innerHTML = originalHtml;
-        nextBtn.disabled = false;
-        this.isGeneratingTasks = false;
-    }
-}
-generateTasksBasedOnAnswers() {
-    // If there are no answers at all, return empty array
-    const hasValidAnswers = Object.values(this.answers).some(answer => 
-        answer && answer !== '[Skipped]' && answer !== '[Not Applicable]'
-    );
-    
-    if (!hasValidAnswers) {
-        return [];
-    }
-    
-    const tasks = [];
-    
-    // Analyze answers and generate relevant tasks
-    Object.entries(this.answers).forEach(([index, answer]) => {
-        if (answer === '[Skipped]' || answer === '[Not Applicable]') return;
         
-        const question = this.questions[parseInt(index)];
-        const category = question.category;
+        // Remove duplicates based on title
+        const uniqueTasks = [];
+        const titles = new Set();
         
-        // Generate tasks based on category and answer
-        const categoryTasks = this.generateTasksForCategory(category, answer);
-        tasks.push(...categoryTasks);
-    });
-    
-    // Remove duplicates based on title
-    const uniqueTasks = [];
-    const titles = new Set();
-    
-    tasks.forEach(task => {
-        if (!titles.has(task.title)) {
-            titles.add(task.title);
-            uniqueTasks.push(task);
-        }
-    });
-    
-    return uniqueTasks;
-}
+        tasks.forEach(task => {
+            if (!titles.has(task.title)) {
+                titles.add(task.title);
+                uniqueTasks.push({
+                    ...task,
+                    id: this.generateId() // Ensure unique ID
+                });
+            }
+        });
+        
+        return uniqueTasks;
+    }
     
     generateTasksForCategory(category, answer) {
         const tasks = [];
         
-        // Simplified AI-like task generation
-        // In a real app, this would use NLP or an AI API
+        // Generate tasks based on answer content
+        if (answer && answer.trim().length > 10) {
+            // Create more personalized tasks based on the actual answer
+            tasks.push(
+                {
+                    id: this.generateId(),
+                    title: `Analyze: "${answer.substring(0, 50)}..."`,
+                    description: `Review and break down insights from: ${answer}`,
+                    status: 'todo',
+                    priority: 'medium',
+                    tags: ['analysis', 'review']
+                },
+                {
+                    id: this.generateId(),
+                    title: `Create action plan based on response`,
+                    description: `Develop specific steps from user input: ${answer.substring(0, 100)}`,
+                    status: 'todo',
+                    priority: 'high',
+                    tags: ['planning', 'execution']
+                }
+            );
+        }
         
+        // Add category-specific tasks
         if (category.includes('Understanding Value')) {
             tasks.push(
                 {
@@ -690,6 +748,9 @@ generateTasksBasedOnAnswers() {
         // Add task to board
         this.kanbanBoard.addTask(task);
         
+        // Update tasks array
+        this.tasks.push(task);
+        
         // Update stats
         this.updateStats();
         
@@ -703,7 +764,8 @@ generateTasksBasedOnAnswers() {
         this.saveToLocalStorage();
     }
     
-    regenerateTasks() {
+    // UPDATED: AI-powered regeneration
+    async regenerateTasks() {
         if (this.isGeneratingTasks) return;
         
         this.isGeneratingTasks = true;
@@ -714,29 +776,61 @@ generateTasksBasedOnAnswers() {
         btn.innerHTML = '<div class="loading"></div> Regenerating...';
         btn.disabled = true;
         
-        // Simulate AI regeneration
-        setTimeout(() => {
-            // Clear existing tasks
-            this.kanbanBoard.clearTasks();
-            
-            // Generate new tasks from answers
-            const newTasks = this.generateTasksBasedOnAnswers();
-            
-            // Add new tasks to board
-            newTasks.forEach(task => {
-                this.kanbanBoard.addTask(task);
+        try {
+            // 1. Prepare data to send
+            const requestData = {
+                answers: this.answers,
+                questions: this.questions
+            };
+
+            // 2. Call YOUR backend endpoint - UPDATE THIS URL
+            const response = await fetch('https://intuivabackend-production.up.railway.app/api/generate-tasks', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(requestData)
             });
+
+            const result = await response.json();
+
+            if (result.success && result.tasks && result.tasks.length > 0) {
+                // 3. Clear existing tasks and add AI-generated ones
+                this.tasks = result.tasks.map(task => ({
+                    ...task,
+                    id: this.generateId()
+                }));
+                
+                if (this.kanbanBoard) {
+                    this.kanbanBoard.clearTasks();
+                    this.tasks.forEach(task => {
+                        this.kanbanBoard.addTask(task);
+                    });
+                }
+                this.showToast('AI tasks regenerated!', 'success');
+            } else {
+                throw new Error('AI returned no tasks');
+            }
             
-            // Update stats
+        } catch (error) {
+            console.warn('AI regeneration failed:', error);
+            // Fallback to local logic
+            this.tasks = this.generateTasksBasedOnAnswers();
+            if (this.kanbanBoard) {
+                this.kanbanBoard.clearTasks();
+                this.tasks.forEach(task => {
+                    this.kanbanBoard.addTask(task);
+                });
+            }
+            this.showToast('Regenerated from your answers.', 'info');
+        } finally {
+            // Update stats and save
             this.updateStats();
+            this.saveToLocalStorage();
             
             // Reset button
             btn.innerHTML = originalHtml;
             btn.disabled = false;
             this.isGeneratingTasks = false;
-            
-            this.showToast('Tasks regenerated based on your answers!', 'success');
-        }, 2000);
+        }
     }
     
     exportBoard() {
@@ -841,7 +935,7 @@ generateTasksBasedOnAnswers() {
             console.warn('Failed to load from localStorage:', e);
         }
     }
-} // <-- This closes the IntuivaApp class
+}
 
 // Initialize the app when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
