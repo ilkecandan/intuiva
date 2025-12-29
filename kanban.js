@@ -1,7 +1,33 @@
 class KanbanBoard {
-    constructor(tasks = []) {
+    constructor(tasks = [], translationFn = null) {
         this.tasks = tasks;
+        this.t = translationFn || this.defaultTranslation;
         this.init();
+    }
+    
+    defaultTranslation(key) {
+        // Basic fallback translations
+        const translations = {
+            'board.noTasks': 'No tasks yet',
+            'board.addOrGenerate': 'Add a task or generate with AI',
+            'help.click': 'Click to edit',
+            'help.delete': 'Delete task',
+            'priority.high': 'High',
+            'priority.medium': 'Medium',
+            'priority.low': 'Low',
+            'priority.critical': 'Critical',
+            'status.todo': 'To Do',
+            'status.inprogress': 'In Progress',
+            'status.done': 'Done',
+            'confirm.deleteTask': 'Are you sure you want to delete this task?',
+            'toast.taskDeleted': 'Task deleted successfully',
+            'modal.editTask': 'Edit Task',
+            'modal.addTask': 'Add Task',
+            'toast.taskUpdated': 'Task updated successfully',
+            'toast.taskAdded': 'Task added successfully'
+        };
+        
+        return translations[key] || key;
     }
     
     init() {
@@ -37,12 +63,11 @@ class KanbanBoard {
             if (column.children.length === 0) {
                 const emptyState = document.createElement('div');
                 emptyState.className = 'empty-state';
-                const t = window.intuivaApp ? window.intuivaApp.t : (key) => key;
                 emptyState.innerHTML = `
                     <i class="fas fa-clipboard-list"></i>
-                    <p>${t('board.noTasks') || 'No tasks yet'}</p>
+                    <p>${this.t('board.noTasks')}</p>
                     <small style="color: var(--color-text-muted); margin-top: 0.5rem; font-size: 0.75rem;">
-                        ${t('board.addOrGenerate') || 'Add a task or generate with AI'}
+                        ${this.t('board.addOrGenerate')}
                     </small>
                 `;
                 column.appendChild(emptyState);
@@ -69,20 +94,16 @@ class KanbanBoard {
             : '';
         
         // Get translated priority label
-        let priorityLabel = task.priority;
-        if (window.intuivaApp) {
-            const t = window.intuivaApp.t;
-            priorityLabel = t(`priority.${task.priority}`) || task.priority;
-        }
+        const priorityLabel = this.t(`priority.${task.priority}`) || task.priority;
         
         taskElement.innerHTML = `
             <div class="task-header">
                 <div class="task-title">${this.escapeHtml(task.title)}</div>
                 <div class="task-actions">
-                    <button class="task-action-btn edit-task" title="${window.intuivaApp ? window.intuivaApp.t('help.click') : 'Edit'}" tabindex="-1">
+                    <button class="task-action-btn edit-task" title="${this.t('help.click')}" tabindex="-1">
                         <i class="fas fa-edit"></i>
                     </button>
-                    <button class="task-action-btn delete-task" title="${window.intuivaApp ? window.intuivaApp.t('help.delete') : 'Delete'}" tabindex="-1">
+                    <button class="task-action-btn delete-task" title="${this.t('help.delete')}" tabindex="-1">
                         <i class="fas fa-trash"></i>
                     </button>
                 </div>
@@ -178,8 +199,8 @@ class KanbanBoard {
             this.triggerAutoSave();
             
             // Show success message
-            if (window.intuivaApp) {
-                window.intuivaApp.showToast(window.intuivaApp.t('toast.taskUpdated'), 'success');
+            if (window.intuivaApp && window.intuivaApp.showToast) {
+                window.intuivaApp.showToast(this.t('toast.taskUpdated'), 'success');
             }
             return true;
         }
@@ -187,9 +208,8 @@ class KanbanBoard {
     }
     
     deleteTask(taskId) {
-        const t = window.intuivaApp ? window.intuivaApp.t : (key) => key;
-        const confirmMessage = t('confirm.deleteTask') || 'Are you sure you want to delete this task?';
-        const successMessage = t('toast.taskDeleted') || 'Task deleted successfully';
+        const confirmMessage = this.t('confirm.deleteTask');
+        const successMessage = this.t('toast.taskDeleted');
         
         if (confirm(confirmMessage)) {
             // Remove from data
@@ -207,7 +227,7 @@ class KanbanBoard {
             this.triggerAutoSave();
             
             // Show toast notification
-            if (window.intuivaApp) {
+            if (window.intuivaApp && window.intuivaApp.showToast) {
                 window.intuivaApp.showToast(successMessage, 'success');
             }
         }
@@ -217,9 +237,6 @@ class KanbanBoard {
         const task = this.tasks.find(t => t.id === taskId);
         if (!task) return;
         
-        // Get translation function
-        const t = window.intuivaApp ? window.intuivaApp.t : (key) => key;
-        
         // Populate modal with task data
         document.getElementById('taskTitle').value = task.title;
         document.getElementById('taskDescription').value = task.description || '';
@@ -228,7 +245,7 @@ class KanbanBoard {
         document.getElementById('taskTags').value = task.tags ? task.tags.join(', ') : '';
         
         // Update modal title
-        document.getElementById('modalTitle').textContent = t('modal.editTask') || 'Edit Task';
+        document.getElementById('modalTitle').textContent = this.t('modal.editTask');
         
         // Show modal
         document.getElementById('taskModal').classList.add('active');
@@ -270,7 +287,7 @@ class KanbanBoard {
         if (!task) return;
         
         // Create a simple toast notification for quick view
-        if (window.intuivaApp) {
+        if (window.intuivaApp && window.intuivaApp.showToast) {
             const message = `📋 ${task.title}\n📝 ${task.description || 'No description'}\n🏷️ ${task.tags?.join(', ') || 'No tags'}`;
             window.intuivaApp.showToast(message, 'info');
         }
@@ -336,11 +353,9 @@ class KanbanBoard {
                     this.updateTask(taskId, { status: newStatus });
                     
                     // Show feedback
-                    if (window.intuivaApp) {
-                        const t = window.intuivaApp.t;
+                    if (window.intuivaApp && window.intuivaApp.showToast) {
                         const statusLabel = this.getStatusLabel(newStatus);
-                        const message = t ? `Task moved to ${statusLabel}` : `Task moved to ${this.getStatusLabel(newStatus)}`;
-                        window.intuivaApp.showToast(message, 'info');
+                        window.intuivaApp.showToast(`Task moved to ${statusLabel}`, 'info');
                     }
                 }
             });
@@ -399,7 +414,7 @@ class KanbanBoard {
         document.getElementById('doneCount').textContent = stats.done;
         
         // Update global stats if app exists
-        if (window.intuivaApp) {
+        if (window.intuivaApp && window.intuivaApp.updateStats) {
             window.intuivaApp.updateStats();
         }
         
@@ -421,17 +436,7 @@ class KanbanBoard {
     }
     
     getStatusLabel(status) {
-        if (window.intuivaApp) {
-            const t = window.intuivaApp.t;
-            return t(`status.${status}`) || status;
-        }
-        
-        const labels = {
-            todo: 'To Do',
-            inprogress: 'In Progress',
-            done: 'Done'
-        };
-        return labels[status] || status;
+        return this.t(`status.${status}`) || status;
     }
     
     escapeHtml(text) {
@@ -442,12 +447,12 @@ class KanbanBoard {
     }
     
     triggerAutoSave() {
-        if (window.intuivaApp) {
+        if (window.intuivaApp && window.intuivaApp.saveProject) {
             // Trigger auto-save with a small delay to batch multiple updates
             clearTimeout(this._autoSaveTimeout);
             this._autoSaveTimeout = setTimeout(() => {
                 window.intuivaApp.saveProject();
-            }, 500); // Reduced from 1000ms for faster saving
+            }, 500);
         }
     }
 }
