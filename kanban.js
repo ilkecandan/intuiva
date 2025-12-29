@@ -1,9 +1,6 @@
 class KanbanBoard {
-    constructor(tasks = [], appInstance = null) {
+    constructor(tasks = []) {
         this.tasks = tasks;
-        this.app = appInstance; // Store app instance for translations
-        this.columns = {};
-        this._autoSaveTimeout = null;
         this.init();
     }
     
@@ -23,12 +20,10 @@ class KanbanBoard {
     renderTasks() {
         // Clear all columns
         Object.values(this.columns).forEach(column => {
-            if (column) {
-                const emptyState = column.querySelector('.empty-state');
-                column.innerHTML = '';
-                if (emptyState) {
-                    column.appendChild(emptyState.cloneNode(true));
-                }
+            const emptyState = column.querySelector('.empty-state');
+            column.innerHTML = '';
+            if (emptyState) {
+                column.appendChild(emptyState.cloneNode(true));
             }
         });
         
@@ -39,13 +34,10 @@ class KanbanBoard {
         
         // Add empty state if column is empty
         Object.entries(this.columns).forEach(([status, column]) => {
-            if (column && column.children.length === 0) {
+            if (column.children.length === 0) {
                 const emptyState = document.createElement('div');
                 emptyState.className = 'empty-state';
-                
-                // Safe translation function
-                const t = this.app?.t || this.t || ((key) => key);
-                
+                const t = window.intuivaApp ? window.intuivaApp.t : (key) => key;
                 emptyState.innerHTML = `
                     <i class="fas fa-clipboard-list"></i>
                     <p>${t('board.noTasks') || 'No tasks yet'}</p>
@@ -78,18 +70,19 @@ class KanbanBoard {
         
         // Get translated priority label
         let priorityLabel = task.priority;
-        if (this.app?.t) {
-            priorityLabel = this.app.t(`priority.${task.priority}`) || task.priority;
+        if (window.intuivaApp) {
+            const t = window.intuivaApp.t;
+            priorityLabel = t(`priority.${task.priority}`) || task.priority;
         }
         
         taskElement.innerHTML = `
             <div class="task-header">
                 <div class="task-title">${this.escapeHtml(task.title)}</div>
                 <div class="task-actions">
-                    <button class="task-action-btn edit-task" title="${this.app?.t?.('help.click') || 'Edit'}" tabindex="-1">
+                    <button class="task-action-btn edit-task" title="${window.intuivaApp ? window.intuivaApp.t('help.click') : 'Edit'}" tabindex="-1">
                         <i class="fas fa-edit"></i>
                     </button>
-                    <button class="task-action-btn delete-task" title="${this.app?.t?.('help.delete') || 'Delete'}" tabindex="-1">
+                    <button class="task-action-btn delete-task" title="${window.intuivaApp ? window.intuivaApp.t('help.delete') : 'Delete'}" tabindex="-1">
                         <i class="fas fa-trash"></i>
                     </button>
                 </div>
@@ -107,19 +100,15 @@ class KanbanBoard {
         const editBtn = taskElement.querySelector('.edit-task');
         const deleteBtn = taskElement.querySelector('.delete-task');
         
-        if (editBtn) {
-            editBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.editTask(task.id);
-            });
-        }
+        editBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.editTask(task.id);
+        });
         
-        if (deleteBtn) {
-            deleteBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.deleteTask(task.id);
-            });
-        }
+        deleteBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.deleteTask(task.id);
+        });
         
         // Add click event to view task details
         taskElement.addEventListener('click', (e) => {
@@ -189,8 +178,8 @@ class KanbanBoard {
             this.triggerAutoSave();
             
             // Show success message
-            if (this.app) {
-                this.app.showToast(this.app.t('toast.taskUpdated'), 'success');
+            if (window.intuivaApp) {
+                window.intuivaApp.showToast(window.intuivaApp.t('toast.taskUpdated'), 'success');
             }
             return true;
         }
@@ -198,8 +187,7 @@ class KanbanBoard {
     }
     
     deleteTask(taskId) {
-        // Safe translation function
-        const t = this.app?.t || ((key) => key);
+        const t = window.intuivaApp ? window.intuivaApp.t : (key) => key;
         const confirmMessage = t('confirm.deleteTask') || 'Are you sure you want to delete this task?';
         const successMessage = t('toast.taskDeleted') || 'Task deleted successfully';
         
@@ -219,8 +207,8 @@ class KanbanBoard {
             this.triggerAutoSave();
             
             // Show toast notification
-            if (this.app) {
-                this.app.showToast(successMessage, 'success');
+            if (window.intuivaApp) {
+                window.intuivaApp.showToast(successMessage, 'success');
             }
         }
     }
@@ -230,66 +218,51 @@ class KanbanBoard {
         if (!task) return;
         
         // Get translation function
-        const t = this.app?.t || ((key) => key);
+        const t = window.intuivaApp ? window.intuivaApp.t : (key) => key;
         
         // Populate modal with task data
-        const titleInput = document.getElementById('taskTitle');
-        const descInput = document.getElementById('taskDescription');
-        const priorityInput = document.getElementById('taskPriority');
-        const statusInput = document.getElementById('taskStatus');
-        const tagsInput = document.getElementById('taskTags');
-        
-        if (titleInput) titleInput.value = task.title;
-        if (descInput) descInput.value = task.description || '';
-        if (priorityInput) priorityInput.value = task.priority;
-        if (statusInput) statusInput.value = task.status;
-        if (tagsInput) tagsInput.value = task.tags ? task.tags.join(', ') : '';
+        document.getElementById('taskTitle').value = task.title;
+        document.getElementById('taskDescription').value = task.description || '';
+        document.getElementById('taskPriority').value = task.priority;
+        document.getElementById('taskStatus').value = task.status;
+        document.getElementById('taskTags').value = task.tags ? task.tags.join(', ') : '';
         
         // Update modal title
-        const modalTitle = document.getElementById('modalTitle');
-        if (modalTitle) {
-            modalTitle.textContent = t('modal.editTask') || 'Edit Task';
-        }
+        document.getElementById('modalTitle').textContent = t('modal.editTask') || 'Edit Task';
         
         // Show modal
-        const modal = document.getElementById('taskModal');
-        if (modal) {
-            modal.classList.add('active');
-        }
+        document.getElementById('taskModal').classList.add('active');
         
         // Remove any existing submit listeners
         const form = document.getElementById('taskForm');
-        if (form) {
-            const newForm = form.cloneNode(true);
-            form.parentNode.replaceChild(newForm, form);
+        const newForm = form.cloneNode(true);
+        form.parentNode.replaceChild(newForm, form);
+        
+        // Add new submit listener
+        newForm.addEventListener('submit', (e) => {
+            e.preventDefault();
             
-            // Add new submit listener
-            newForm.addEventListener('submit', (e) => {
-                e.preventDefault();
-                
-                const updatedTask = {
-                    title: document.getElementById('taskTitle')?.value?.trim() || '',
-                    description: document.getElementById('taskDescription')?.value?.trim() || '',
-                    priority: document.getElementById('taskPriority')?.value || 'medium',
-                    status: document.getElementById('taskStatus')?.value || 'todo',
-                    tags: (document.getElementById('taskTags')?.value || '')
-                        .split(',')
-                        .map(tag => tag.trim())
-                        .filter(tag => tag)
-                };
-                
-                if (this.updateTask(taskId, updatedTask)) {
-                    if (modal) modal.classList.remove('active');
-                    newForm.reset();
-                }
-            });
+            const updatedTask = {
+                title: document.getElementById('taskTitle').value.trim(),
+                description: document.getElementById('taskDescription').value.trim(),
+                priority: document.getElementById('taskPriority').value,
+                status: document.getElementById('taskStatus').value,
+                tags: document.getElementById('taskTags').value
+                    .split(',')
+                    .map(tag => tag.trim())
+                    .filter(tag => tag)
+            };
             
-            // Focus on title field
-            setTimeout(() => {
-                const titleField = document.getElementById('taskTitle');
-                if (titleField) titleField.focus();
-            }, 100);
-        }
+            if (this.updateTask(taskId, updatedTask)) {
+                document.getElementById('taskModal').classList.remove('active');
+                newForm.reset();
+            }
+        });
+        
+        // Focus on title field
+        setTimeout(() => {
+            document.getElementById('taskTitle').focus();
+        }, 100);
     }
     
     viewTask(taskId) {
@@ -297,9 +270,9 @@ class KanbanBoard {
         if (!task) return;
         
         // Create a simple toast notification for quick view
-        if (this.app) {
+        if (window.intuivaApp) {
             const message = `📋 ${task.title}\n📝 ${task.description || 'No description'}\n🏷️ ${task.tags?.join(', ') || 'No tags'}`;
-            this.app.showToast(message, 'info');
+            window.intuivaApp.showToast(message, 'info');
         }
     }
     
@@ -341,8 +314,6 @@ class KanbanBoard {
         
         // Add drop zone event listeners to columns
         Object.entries(this.columns).forEach(([status, column]) => {
-            if (!column) return;
-            
             column.addEventListener('dragover', (e) => {
                 e.preventDefault();
                 e.dataTransfer.dropEffect = 'move';
@@ -359,16 +330,17 @@ class KanbanBoard {
                 
                 if (draggedTaskId) {
                     const taskId = draggedTaskId;
-                    const newStatus = column.parentElement?.dataset?.status || status;
+                    const newStatus = column.parentElement.dataset.status;
                     
                     // Update task status
                     this.updateTask(taskId, { status: newStatus });
                     
                     // Show feedback
-                    if (this.app) {
+                    if (window.intuivaApp) {
+                        const t = window.intuivaApp.t;
                         const statusLabel = this.getStatusLabel(newStatus);
-                        const message = `Task moved to ${statusLabel}`;
-                        this.app.showToast(message, 'info');
+                        const message = t ? `Task moved to ${statusLabel}` : `Task moved to ${this.getStatusLabel(newStatus)}`;
+                        window.intuivaApp.showToast(message, 'info');
                     }
                 }
             });
@@ -404,8 +376,8 @@ class KanbanBoard {
     
     adjustColumnHeights() {
         Object.values(this.columns).forEach(column => {
-            if (column) {
-                const content = column.querySelector('.column-content') || column;
+            const content = column.querySelector('.column-content');
+            if (content) {
                 const taskCount = content.children.length;
                 if (taskCount === 0) {
                     content.style.minHeight = '150px';
@@ -422,17 +394,13 @@ class KanbanBoard {
         const stats = this.getStats();
         
         // Update column counts
-        const todoCount = document.getElementById('todoCount');
-        const inprogressCount = document.getElementById('inprogressCount');
-        const doneCount = document.getElementById('doneCount');
-        
-        if (todoCount) todoCount.textContent = stats.todo;
-        if (inprogressCount) inprogressCount.textContent = stats.inProgress;
-        if (doneCount) doneCount.textContent = stats.done;
+        document.getElementById('todoCount').textContent = stats.todo;
+        document.getElementById('inprogressCount').textContent = stats.inProgress;
+        document.getElementById('doneCount').textContent = stats.done;
         
         // Update global stats if app exists
-        if (this.app) {
-            this.app.updateStats();
+        if (window.intuivaApp) {
+            window.intuivaApp.updateStats();
         }
         
         return stats;
@@ -453,8 +421,9 @@ class KanbanBoard {
     }
     
     getStatusLabel(status) {
-        if (this.app?.t) {
-            return this.app.t(`status.${status}`) || status;
+        if (window.intuivaApp) {
+            const t = window.intuivaApp.t;
+            return t(`status.${status}`) || status;
         }
         
         const labels = {
@@ -473,21 +442,13 @@ class KanbanBoard {
     }
     
     triggerAutoSave() {
-        if (this.app) {
+        if (window.intuivaApp) {
             // Trigger auto-save with a small delay to batch multiple updates
             clearTimeout(this._autoSaveTimeout);
             this._autoSaveTimeout = setTimeout(() => {
-                this.app.saveProject();
-            }, 500);
+                window.intuivaApp.saveProject();
+            }, 500); // Reduced from 1000ms for faster saving
         }
-    }
-    
-    // Simple translation function fallback
-    t(key) {
-        if (this.app?.t) {
-            return this.app.t(key);
-        }
-        return key;
     }
 }
 
