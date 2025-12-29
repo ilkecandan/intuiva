@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Intuiva - Lean Project Management</title>
+    <title data-i18n="app.title">Intuiva - Lean Project Management</title>
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/x-icon" href="icons/favicon.ico">
@@ -17,28 +17,36 @@
         <div class="nav-container">
             <div class="nav-brand">
                 <i class="fas fa-brain"></i>
-                <h1>Intuiva</h1>
-                <span class="tagline">Lean Project Management</span>
+                <h1 data-i18n="nav.brand">Intuiva</h1>
+                <span class="tagline" data-i18n="nav.tagline">Lean Project Management</span>
             </div>
             <div class="nav-actions">
+                <!-- Language Selector -->
+                <div class="language-selector">
+                    <select id="languageSelector" class="select-small">
+                        <option value="en">EN</option>
+                        <option value="tr">TR</option>
+                    </select>
+                </div>
+                
                 <!-- Navigation Menu -->
                 <div class="nav-menu" id="navMenu">
-                    <button class="nav-btn" data-screen="onboarding" title="Home">
+                    <button class="nav-btn" data-screen="onboarding" data-i18n-title="nav.home" title="Home">
                         <i class="fas fa-home"></i>
                     </button>
-                    <button class="nav-btn" data-screen="questionnaire" title="Questionnaire">
+                    <button class="nav-btn" data-screen="questionnaire" data-i18n-title="nav.questionnaire" title="Questionnaire">
                         <i class="fas fa-question-circle"></i>
                     </button>
-                    <button class="nav-btn" data-screen="kanbanBoard" title="Kanban Board">
+                    <button class="nav-btn" data-screen="kanbanBoard" data-i18n-title="nav.kanban" title="Kanban Board">
                         <i class="fas fa-columns"></i>
                     </button>
                 </div>
                 
                 <!-- Theme and Help buttons -->
-                <button id="themeToggle" class="btn-icon" aria-label="Toggle theme">
+                <button id="themeToggle" class="btn-icon" data-i18n-title="theme.toggle" aria-label="Toggle theme" title="Toggle theme">
                     <i class="fas fa-moon"></i>
                 </button>
-                <button id="helpBtn" class="btn-icon" aria-label="Help">
+                <button id="helpBtn" class="btn-icon" data-i18n-title="nav.help" aria-label="Help" title="Help">
                     <i class="fas fa-question-circle"></i>
                 </button>
             </div>
@@ -54,9 +62,9 @@
                     <div class="logo-animation">
                         <i class="fas fa-project-diagram"></i>
                     </div>
-                    <h2>Welcome to Intuiva</h2>
-                    <p class="subtitle">AI-powered Lean Project Management</p>
-                    <p class="description">
+                    <h2 data-i18n="onboarding.title">Welcome to Intuiva</h2>
+                    <p class="subtitle" data-i18n="onboarding.subtitle">AI-powered Lean Project Management</p>
+                    <p class="description" data-i18n="onboarding.description">
                         Answer a few questions about your project, and we'll automatically create a Kanban board 
                         with AI-generated tasks optimized for Lean workflow.
                     </p>
@@ -65,27 +73,27 @@
                 <div class="onboarding-stats">
                     <div class="stat-card">
                         <i class="fas fa-bolt"></i>
-                        <h3>Fast Setup</h3>
-                        <p>Get started in minutes</p>
+                        <h3 data-i18n="stats.fast">Fast Setup</h3>
+                        <p data-i18n="stats.fastDesc">Get started in minutes</p>
                     </div>
                     <div class="stat-card">
                         <i class="fas fa-robot"></i>
-                        <h3>AI-Powered</h3>
-                        <p>Smart task generation</p>
+                        <h3 data-i18n="stats.ai">AI-Powered</h3>
+                        <p data-i18n="stats.aiDesc">Smart task generation</p>
                     </div>
                     <div class="stat-card">
                         <i class="fas fa-chart-line"></i>
-                        <h3>Lean Metrics</h3>
-                        <p>Track progress visually</p>
+                        <h3 data-i18n="stats.lean">Lean Metrics</h3>
+                        <p data-i18n="stats.leanDesc">Track progress visually</p>
                     </div>
                 </div>
 
                 <div class="onboarding-actions">
-                    <button id="startBtn" class="btn-primary btn-large">
+                    <button id="startBtn" class="btn-primary btn-large" data-i18n="button.start">
                         <span>Start Project Setup</span>
                         <i class="fas fa-arrow-right"></i>
                     </button>
-                    <button id="skipBtn" class="btn-secondary">
+                    <button id="skipBtn" class="btn-secondary" data-i18n="button.skip">
                         Skip to Empty Board
                     </button>
                 </div>
@@ -100,7 +108,7 @@
                         <div class="progress-bar">
                             <div class="progress-fill" id="progressFill"></div>
                         </div>
-                        <span class="progress-text" id="progressText">Question 1 of 24</span>
+                        <span class="progress-text" id="progressText" data-i18n="question.progress" data-i18n-current="1" data-i18n-total="24">Question 1 of 24</span>
                     </div>
                     
                     <div class="category-indicator">
@@ -111,7 +119,7 @@
                 <div class="question-content">
                     <div class="question-card">
                         <div class="question-header">
-                            <span class="question-number" id="questionNumber">Q1</span>
+                            <span class="question-number" id="questionNumber" data-i18n="question.number" data-i18n-number="1">Q1</span>
                             <h3 id="questionTitle">Question Title</h3>
                         </div>
                         <p class="question-text" id="questionText">Question text goes here...</p>
@@ -119,40 +127,41 @@
                         <div class="answer-container">
                             <textarea 
                                 id="answerInput" 
+                                data-i18n-placeholder="question.placeholder"
                                 placeholder="Type your answer here... (Press Enter for new line, Ctrl+Enter to submit)"
                                 rows="6"
                             ></textarea>
                             <div class="answer-actions">
                                 <span class="char-count" id="charCount">0/500</span>
                                 <button id="clearBtn" class="btn-text">
-                                    <i class="fas fa-times"></i> Clear
+                                    <i class="fas fa-times"></i> <span data-i18n="button.clear">Clear</span>
                                 </button>
                             </div>
                         </div>
 
                         <div class="question-note">
                             <i class="fas fa-lightbulb"></i>
-                            <span>Tip: Be specific and concise. Your answers will help generate relevant tasks.</span>
+                            <span data-i18n="question.tip">Tip: Be specific and concise. Your answers will help generate relevant tasks.</span>
                         </div>
                     </div>
                 </div>
 
                 <div class="questionnaire-actions">
                     <button id="prevBtn" class="btn-secondary">
-                        <i class="fas fa-arrow-left"></i> Previous
+                        <i class="fas fa-arrow-left"></i> <span data-i18n="button.prev">Previous</span>
                     </button>
                     
                     <div class="middle-actions">
-                        <button id="skipQuestionBtn" class="btn-outline">
+                        <button id="skipQuestionBtn" class="btn-outline" data-i18n="button.skipQuestion">
                             Skip Question
                         </button>
-                        <button id="notAnswerBtn" class="btn-outline">
+                        <button id="notAnswerBtn" class="btn-outline" data-i18n="button.notAnswer">
                             Not Applicable
                         </button>
                     </div>
                     
                     <button id="nextBtn" class="btn-primary">
-                        Next <i class="fas fa-arrow-right"></i>
+                        <span data-i18n="button.next">Next</span> <i class="fas fa-arrow-right"></i>
                     </button>
                 </div>
             </div>
@@ -162,54 +171,54 @@
         <section id="kanbanBoard" class="screen">
             <div class="kanban-header">
                 <div class="board-info">
-                    <h2 id="boardTitle">Project Board</h2>
+                    <h2 data-i18n="board.title">Project Board</h2>
                     <div class="board-stats">
                         <span class="stat">
                             <i class="fas fa-tasks"></i>
-                            <span id="totalTasks">0</span> Tasks
+                            <span id="totalTasks">0</span> <span data-i18n="board.tasks">Tasks</span>
                         </span>
                         <span class="stat">
                             <i class="fas fa-check-circle"></i>
-                            <span id="doneTasks">0</span> Done
+                            <span id="doneTasks">0</span> <span data-i18n="board.done">Done</span>
                         </span>
                         <span class="stat">
                             <i class="fas fa-clock"></i>
-                            <span id="wipTasks">0</span> In Progress
+                            <span id="wipTasks">0</span> <span data-i18n="board.inProgress">In Progress</span>
                         </span>
                     </div>
                 </div>
                 
-               <div class="board-actions">
-    <button id="backToQuestionsBtn" class="btn-outline">
-        <i class="fas fa-arrow-left"></i> Back to Questions
-    </button>
-    <button id="addTaskBtn" class="btn-primary">
-        <i class="fas fa-plus"></i> Add Task
-    </button>
-    <button id="clearAllBtn" class="btn-outline">
-        <i class="fas fa-trash"></i> Clear All
-    </button>
-    <button id="regenerateBtn" class="btn-outline">
-        <i class="fas fa-robot"></i> Regenerate Tasks
-    </button>
-    <button id="exportBtn" class="btn-outline">
-        <i class="fas fa-download"></i> Export
-    </button>
-</div>
+                <div class="board-actions">
+                    <button id="backToQuestionsBtn" class="btn-outline">
+                        <i class="fas fa-arrow-left"></i> <span data-i18n="button.backToQuestions">Back to Questions</span>
+                    </button>
+                    <button id="addTaskBtn" class="btn-primary">
+                        <i class="fas fa-plus"></i> <span data-i18n="button.addTask">Add Task</span>
+                    </button>
+                    <button id="clearAllBtn" class="btn-outline">
+                        <i class="fas fa-trash"></i> <span data-i18n="button.clearAll">Clear All</span>
+                    </button>
+                    <button id="regenerateBtn" class="btn-outline">
+                        <i class="fas fa-robot"></i> <span data-i18n="button.regenerate">Regenerate Tasks</span>
+                    </button>
+                    <button id="exportBtn" class="btn-outline">
+                        <i class="fas fa-download"></i> <span data-i18n="button.export">Export</span>
+                    </button>
+                </div>
             </div>
 
             <!-- Kanban Columns -->
             <div class="kanban-container">
                 <div class="kanban-column" data-status="todo">
                     <div class="column-header">
-                        <h3><i class="fas fa-list"></i> To Do</h3>
+                        <h3><i class="fas fa-list"></i> <span data-i18n="column.todo">To Do</span></h3>
                         <span class="column-count" id="todoCount">0</span>
                     </div>
                     <div class="column-content" id="todoColumn">
                         <!-- Tasks will be added here by JavaScript -->
                     </div>
                     <div class="column-footer">
-                        <button class="btn-add-task" data-column="todo">
+                        <button class="btn-add-task" data-column="todo" data-i18n="button.addTask">
                             <i class="fas fa-plus"></i> Add Task
                         </button>
                     </div>
@@ -217,14 +226,14 @@
 
                 <div class="kanban-column" data-status="inprogress">
                     <div class="column-header">
-                        <h3><i class="fas fa-spinner fa-spin"></i> In Progress</h3>
+                        <h3><i class="fas fa-spinner fa-spin"></i> <span data-i18n="column.inProgress">In Progress</span></h3>
                         <span class="column-count" id="inprogressCount">0</span>
                     </div>
                     <div class="column-content" id="inprogressColumn">
                         <!-- Tasks will be added here by JavaScript -->
                     </div>
                     <div class="column-footer">
-                        <button class="btn-add-task" data-column="inprogress">
+                        <button class="btn-add-task" data-column="inprogress" data-i18n="button.addTask">
                             <i class="fas fa-plus"></i> Add Task
                         </button>
                     </div>
@@ -232,14 +241,14 @@
 
                 <div class="kanban-column" data-status="done">
                     <div class="column-header">
-                        <h3><i class="fas fa-check-circle"></i> Done</h3>
+                        <h3><i class="fas fa-check-circle"></i> <span data-i18n="column.done">Done</span></h3>
                         <span class="column-count" id="doneCount">0</span>
                     </div>
                     <div class="column-content" id="doneColumn">
                         <!-- Tasks will be added here by JavaScript -->
                     </div>
                     <div class="column-footer">
-                        <button class="btn-add-task" data-column="done">
+                        <button class="btn-add-task" data-column="done" data-i18n="button.addTask">
                             <i class="fas fa-plus"></i> Add Task
                         </button>
                     </div>
@@ -252,7 +261,7 @@
     <div id="taskModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3 id="modalTitle">Add New Task</h3>
+                <h3 data-i18n="modal.addTask">Add New Task</h3>
                 <button class="btn-icon close-modal">
                     <i class="fas fa-times"></i>
                 </button>
@@ -260,41 +269,41 @@
             <div class="modal-body">
                 <form id="taskForm">
                     <div class="form-group">
-                        <label for="taskTitle">Task Title</label>
-                        <input type="text" id="taskTitle" required placeholder="Enter task title...">
+                        <label for="taskTitle" data-i18n="form.taskTitle">Task Title</label>
+                        <input type="text" id="taskTitle" required data-i18n-placeholder="form.taskTitlePlaceholder" placeholder="Enter task title...">
                     </div>
                     <div class="form-group">
-                        <label for="taskDescription">Description</label>
-                        <textarea id="taskDescription" rows="4" placeholder="Describe the task..."></textarea>
+                        <label for="taskDescription" data-i18n="form.description">Description</label>
+                        <textarea id="taskDescription" rows="4" data-i18n-placeholder="form.descriptionPlaceholder" placeholder="Describe the task..."></textarea>
                     </div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="taskPriority">Priority</label>
+                            <label for="taskPriority" data-i18n="form.priority">Priority</label>
                             <select id="taskPriority">
-                                <option value="low">Low</option>
-                                <option value="medium" selected>Medium</option>
-                                <option value="high">High</option>
-                                <option value="critical">Critical</option>
+                                <option value="low" data-i18n="priority.low">Low</option>
+                                <option value="medium" selected data-i18n="priority.medium">Medium</option>
+                                <option value="high" data-i18n="priority.high">High</option>
+                                <option value="critical" data-i18n="priority.critical">Critical</option>
                             </select>
                         </div>
                         <div class="form-group">
-                            <label for="taskStatus">Status</label>
+                            <label for="taskStatus" data-i18n="form.status">Status</label>
                             <select id="taskStatus">
-                                <option value="todo">To Do</option>
-                                <option value="inprogress">In Progress</option>
-                                <option value="done">Done</option>
+                                <option value="todo" data-i18n="status.todo">To Do</option>
+                                <option value="inprogress" data-i18n="status.inProgress">In Progress</option>
+                                <option value="done" data-i18n="status.done">Done</option>
                             </select>
                         </div>
                     </div>
                     <div class="form-group">
-                        <label for="taskTags">Tags (comma-separated)</label>
-                        <input type="text" id="taskTags" placeholder="e.g., frontend, backend, design">
+                        <label for="taskTags" data-i18n="form.tags">Tags (comma-separated)</label>
+                        <input type="text" id="taskTags" data-i18n-placeholder="form.tagsPlaceholder" placeholder="e.g., frontend, backend, design">
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn-secondary close-modal">Cancel</button>
-                <button type="submit" form="taskForm" class="btn-primary">Save Task</button>
+                <button type="button" class="btn-secondary close-modal" data-i18n="button.cancel">Cancel</button>
+                <button type="submit" form="taskForm" class="btn-primary" data-i18n="button.save">Save Task</button>
             </div>
         </div>
     </div>
@@ -303,28 +312,28 @@
     <div id="helpModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>How to Use Intuiva</h3>
+                <h3 data-i18n="help.title">How to Use Intuiva</h3>
                 <button class="btn-icon close-modal">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
             <div class="modal-body">
                 <div class="help-section">
-                    <h4><i class="fas fa-question-circle"></i> Getting Started</h4>
-                    <p>Answer the questionnaire to let AI generate relevant tasks for your project. You can skip questions or proceed directly to an empty board.</p>
+                    <h4><i class="fas fa-question-circle"></i> <span data-i18n="help.gettingStarted">Getting Started</span></h4>
+                    <p data-i18n="help.gettingStartedDesc">Answer the questionnaire to let AI generate relevant tasks for your project. You can skip questions or proceed directly to an empty board.</p>
                 </div>
                 <div class="help-section">
-                    <h4><i class="fas fa-columns"></i> Kanban Board</h4>
+                    <h4><i class="fas fa-columns"></i> <span data-i18n="help.kanbanBoard">Kanban Board</span></h4>
                     <ul>
-                        <li><strong>Drag & Drop:</strong> Move tasks between columns</li>
-                        <li><strong>Click:</strong> View and edit task details</li>
-                        <li><strong>Delete:</strong> Click the trash icon on a task</li>
-                        <li><strong>Add:</strong> Use the "+ Add Task" button in each column</li>
+                        <li><strong data-i18n="help.dragDrop">Drag & Drop:</strong> <span data-i18n="help.dragDropDesc">Move tasks between columns</span></li>
+                        <li><strong data-i18n="help.click">Click:</strong> <span data-i18n="help.clickDesc">View and edit task details</span></li>
+                        <li><strong data-i18n="help.delete">Delete:</strong> <span data-i18n="help.deleteDesc">Click the trash icon on a task</span></li>
+                        <li><strong data-i18n="help.add">Add:</strong> <span data-i18n="help.addDesc">Use the "+ Add Task" button in each column</span></li>
                     </ul>
                 </div>
                 <div class="help-section">
-                    <h4><i class="fas fa-robot"></i> AI Features</h4>
-                    <p>The AI analyzes your answers to generate relevant tasks. Use the "Regenerate Tasks" button to create new tasks based on your responses.</p>
+                    <h4><i class="fas fa-robot"></i> <span data-i18n="help.aiFeatures">AI Features</span></h4>
+                    <p data-i18n="help.aiFeaturesDesc">The AI analyzes your answers to generate relevant tasks. Use the "Regenerate Tasks" button to create new tasks based on your responses.</p>
                 </div>
             </div>
         </div>
@@ -337,6 +346,7 @@
 
     <!-- Scripts -->
     <script src="data.js"></script>
+    <script src="translations.js"></script>
     <script src="kanban.js"></script>
     <script src="app.js"></script>
     <script>
