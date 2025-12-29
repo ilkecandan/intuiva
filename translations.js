@@ -1,5 +1,5 @@
 // translations.js
-const TRANSLATIONS = {
+window.TRANSLATIONS = {
     en: {
         // App & Navigation
         'app.title': 'Intuiva - AI Project Manager',
@@ -43,7 +43,9 @@ const TRANSLATIONS = {
         // Questions
         'question.number': 'Q{{number}}',
         'question.progress': 'Question {{current}} of {{total}}',
-        'question.placeholder': 'Type your answer here... (Press Enter for new line, Ctrl+Enter to submit)',
+        'question.category': 'Category',
+        'question.defaultTitle': 'Question Title',
+        'question.defaultText': 'Question text goes here...',
         'question.tip': 'Tip: Be specific and concise. Your answers will help generate relevant tasks.',
         
         // Board
@@ -171,7 +173,9 @@ const TRANSLATIONS = {
         // Questions
         'question.number': 'S{{number}}',
         'question.progress': 'Soru {{current}} / {{total}}',
-        'question.placeholder': 'Cevabınızı buraya yazın... (Yeni satır için Enter, göndermek için Ctrl+Enter)',
+        'question.category': 'Kategori',
+        'question.defaultTitle': 'Soru Başlığı',
+        'question.defaultText': 'Soru metni buraya gelecek...',
         'question.tip': 'İpucu: Spesifik ve öz olun. Cevaplarınız ilgili görevlerin oluşturulmasına yardımcı olacaktır.',
         
         // Board
