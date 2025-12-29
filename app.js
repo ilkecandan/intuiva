@@ -6,10 +6,41 @@ class IntuivaApp {
         this.kanbanBoard = null;
         this.isGeneratingTasks = false;
         this.currentScreen = 'onboarding';
+        this.currentLanguage = this.detectLanguage() || 'en'; // 'en' or 'tr'
+        
+        // Load translations
+        this.translations = TRANSLATIONS || {};
         
         this.init();
     }
     
+    // Language detection based on browser or user preference
+    detectLanguage() {
+        // Check localStorage first
+        const savedLang = localStorage.getItem('intuiva-language');
+        if (savedLang) return savedLang;
+        
+        // Check browser language
+        const browserLang = navigator.language || navigator.userLanguage;
+        if (browserLang.startsWith('tr')) return 'tr';
+        
+        // Default to English
+        return 'en';
+    }
+    
+    // Get translation with fallback
+    t(key, params = {}) {
+        let translation = this.translations[this.currentLanguage]?.[key] || 
+                        this.translations['en']?.[key] || 
+                        key;
+        
+        // Replace parameters
+        Object.keys(params).forEach(param => {
+            translation = translation.replace(`{{${param}}}`, params[param]);
+        });
+        
+        return translation;
+    }
 
     init() {
         // Initialize screens
@@ -18,6 +49,9 @@ class IntuivaApp {
             questionnaire: document.getElementById('questionnaire'),
             kanbanBoard: document.getElementById('kanbanBoard')
         };
+        
+        // Apply language immediately
+        this.applyLanguage();
         
         // Initialize buttons
         this.initButtons();
@@ -47,6 +81,49 @@ class IntuivaApp {
         this.initCharCounter();
         
         console.log('Intuiva App initialized successfully');
+    }
+
+    // Apply language to UI elements
+    applyLanguage() {
+        // Update all translatable elements
+        document.querySelectorAll('[data-i18n]').forEach(element => {
+            const key = element.getAttribute('data-i18n');
+            if (key) {
+                const params = {};
+                element.getAttributeNames().forEach(attr => {
+                    if (attr.startsWith('data-i18n-')) {
+                        const paramName = attr.replace('data-i18n-', '');
+                        params[paramName] = element.getAttribute(attr);
+                    }
+                });
+                element.textContent = this.t(key, params);
+            }
+        });
+        
+        // Update placeholders
+        document.querySelectorAll('[data-i18n-placeholder]').forEach(element => {
+            const key = element.getAttribute('data-i18n-placeholder');
+            if (key) {
+                element.placeholder = this.t(key);
+            }
+        });
+        
+        // Update titles
+        document.querySelectorAll('[data-i18n-title]').forEach(element => {
+            const key = element.getAttribute('data-i18n-title');
+            if (key) {
+                element.title = this.t(key);
+            }
+        });
+        
+        // Update page title
+        document.title = this.t('app.title');
+        
+        // Update language selector if exists
+        const langSelector = document.getElementById('languageSelector');
+        if (langSelector) {
+            langSelector.value = this.currentLanguage;
+        }
     }
 
     initButtons() {
@@ -85,20 +162,20 @@ class IntuivaApp {
                 this.updateStats();
             }
             
-            this.showToast('Started with empty board', 'info');
+            this.showToast(this.t('toast.startedEmpty'), 'info');
         });
         
         // Clear All button (if you added it)
         if (document.getElementById('clearAllBtn')) {
             document.getElementById('clearAllBtn').addEventListener('click', () => {
-                if (confirm('Are you sure you want to clear all tasks? This cannot be undone.')) {
+                if (confirm(this.t('confirm.clearAll'))) {
                     this.tasks = [];
                     if (this.kanbanBoard) {
                         this.kanbanBoard.clearTasks();
                     }
                     this.updateStats();
                     this.saveToLocalStorage();
-                    this.showToast('All tasks cleared', 'info');
+                    this.showToast(this.t('toast.allCleared'), 'info');
                 }
             });
         }
@@ -132,6 +209,20 @@ class IntuivaApp {
         document.getElementById('helpBtn').addEventListener('click', () => {
             document.getElementById('helpModal').classList.add('active');
         });
+        
+        // Language toggle button (if exists)
+        const langToggle = document.getElementById('languageToggle');
+        if (langToggle) {
+            langToggle.addEventListener('click', () => this.toggleLanguage());
+        }
+        
+        // Language selector (if exists)
+        const langSelector = document.getElementById('languageSelector');
+        if (langSelector) {
+            langSelector.addEventListener('change', (e) => {
+                this.setLanguage(e.target.value);
+            });
+        }
     }
 
     initNavigation() {
@@ -217,6 +308,19 @@ class IntuivaApp {
                 this.clearAnswer();
             }
         });
+        
+        // Update question translations if available
+        this.applyQuestionTranslations();
+    }
+    
+    applyQuestionTranslations() {
+        if (this.questions && this.currentLanguage === 'tr' && TRANSLATIONS?.tr?.questions) {
+            this.questions = this.questions.map((question, index) => ({
+                ...question,
+                text: TRANSLATIONS.tr.questions[index]?.text || question.text,
+                category: TRANSLATIONS.tr.questions[index]?.category || question.category
+            }));
+        }
     }
 
     initModals() {
@@ -302,8 +406,8 @@ class IntuivaApp {
         this.currentQuestionIndex = index;
         const question = this.questions[index];
         
-        // Update UI
-        document.getElementById('questionNumber').textContent = `Q${index + 1}`;
+        // Update UI with translations
+        document.getElementById('questionNumber').textContent = this.t('question.number', { number: index + 1 });
         document.getElementById('questionTitle').textContent = question.category;
         document.getElementById('questionText').textContent = question.text;
         document.getElementById('categoryTitle').textContent = question.category;
@@ -311,7 +415,10 @@ class IntuivaApp {
         // Update progress
         const progress = ((index + 1) / this.totalQuestions) * 100;
         document.getElementById('progressFill').style.width = `${progress}%`;
-        document.getElementById('progressText').textContent = `Question ${index + 1} of ${this.totalQuestions}`;
+        document.getElementById('progressText').textContent = this.t('question.progress', {
+            current: index + 1,
+            total: this.totalQuestions
+        });
         
         // Load saved answer
         const answerInput = document.getElementById('answerInput');
@@ -325,9 +432,12 @@ class IntuivaApp {
         document.getElementById('prevBtn').disabled = index === 0;
         
         // Update next button text for last question
-        document.getElementById('nextBtn').innerHTML = index === this.totalQuestions - 1 
-            ? 'Generate Kanban Board <i class="fas fa-arrow-right"></i>' 
-            : 'Next <i class="fas fa-arrow-right"></i>';
+        const nextBtn = document.getElementById('nextBtn');
+        if (index === this.totalQuestions - 1) {
+            nextBtn.innerHTML = `${this.t('button.generateBoard')} <i class="fas fa-arrow-right"></i>`;
+        } else {
+            nextBtn.innerHTML = `${this.t('button.next')} <i class="fas fa-arrow-right"></i>`;
+        }
     }
     
     prevQuestion() {
@@ -401,14 +511,15 @@ class IntuivaApp {
 
         const nextBtn = document.getElementById('nextBtn');
         const originalHtml = nextBtn.innerHTML;
-        nextBtn.innerHTML = '<div class="loading"></div> Contacting AI...';
+        nextBtn.innerHTML = `<div class="loading"></div> ${this.t('ai.contacting')}`;
         nextBtn.disabled = true;
 
         try {
-            // 1. Prepare data to send
+            // 1. Prepare data to send with language context
             const requestData = {
                 answers: this.answers,
-                questions: this.questions // Send questions for full context
+                questions: this.questions,
+                language: this.currentLanguage // Send language to backend
             };
 
             // 2. Call YOUR backend endpoint - UPDATE THIS URL
@@ -437,7 +548,7 @@ class IntuivaApp {
                     });
                 }
                 
-                this.showToast('AI tasks generated successfully!', 'success');
+                this.showToast(this.t('ai.generatedSuccess'), 'success');
             } else {
                 // 4. Fallback to local logic if AI fails
                 throw new Error('AI returned no tasks');
@@ -455,7 +566,7 @@ class IntuivaApp {
                 });
             }
             
-            this.showToast('Generated tasks from your answers.', 'info');
+            this.showToast(this.t('ai.generatedFallback'), 'info');
         } finally {
             // 5. Save to localStorage
             this.saveToLocalStorage();
@@ -472,7 +583,7 @@ class IntuivaApp {
     }
     
     generateTasksBasedOnAnswers() {
-        // If there are no answers at all, return empty array
+        // If there are no answers at all, return default tasks
         const hasValidAnswers = Object.values(this.answers).some(answer => 
             answer && answer !== '[Skipped]' && answer !== '[Not Applicable]'
         );
@@ -514,135 +625,102 @@ class IntuivaApp {
     
     generateTasksForCategory(category, answer) {
         const tasks = [];
+        const isTurkish = this.currentLanguage === 'tr';
         
         // Generate tasks based on answer content
         if (answer && answer.trim().length > 10) {
-            // Create more personalized tasks based on the actual answer
             tasks.push(
                 {
                     id: this.generateId(),
-                    title: `Analyze: "${answer.substring(0, 50)}..."`,
-                    description: `Review and break down insights from: ${answer}`,
+                    title: isTurkish ? `Analiz: "${answer.substring(0, 50)}..."` : `Analyze: "${answer.substring(0, 50)}..."`,
+                    description: isTurkish ? 
+                        `Bu yanıttan içgörüleri gözden geçirin ve analiz edin: ${answer}` :
+                        `Review and break down insights from: ${answer}`,
                     status: 'todo',
                     priority: 'medium',
-                    tags: ['analysis', 'review']
+                    tags: isTurkish ? ['analiz', 'inceleme'] : ['analysis', 'review']
                 },
                 {
                     id: this.generateId(),
-                    title: `Create action plan based on response`,
-                    description: `Develop specific steps from user input: ${answer.substring(0, 100)}`,
+                    title: isTurkish ? 'Yanıta dayalı eylem planı oluştur' : 'Create action plan based on response',
+                    description: isTurkish ?
+                        `Kullanıcı girdisinden özel adımlar geliştirin: ${answer.substring(0, 100)}` :
+                        `Develop specific steps from user input: ${answer.substring(0, 100)}`,
                     status: 'todo',
                     priority: 'high',
-                    tags: ['planning', 'execution']
+                    tags: isTurkish ? ['planlama', 'yürütme'] : ['planning', 'execution']
                 }
             );
         }
         
-        // Add category-specific tasks
-        if (category.includes('Understanding Value')) {
+        // Add category-specific tasks with translations
+        if (category.includes('Understanding Value') || category.includes('Değeri Anlama')) {
             tasks.push(
                 {
                     id: this.generateId(),
-                    title: 'Define primary customer personas',
-                    description: 'Create detailed profiles for primary and secondary users based on project requirements',
+                    title: isTurkish ? 'Birincil müşteri profillerini tanımla' : 'Define primary customer personas',
+                    description: isTurkish ?
+                        'Proje gereksinimlerine göre birincil ve ikincil kullanıcılar için detaylı profiller oluşturun' :
+                        'Create detailed profiles for primary and secondary users based on project requirements',
                     status: 'todo',
                     priority: 'high',
-                    tags: ['planning', 'research', 'customer']
+                    tags: isTurkish ? ['planlama', 'araştırma', 'müşteri'] : ['planning', 'research', 'customer']
                 },
                 {
                     id: this.generateId(),
-                    title: 'Document key success metrics',
-                    description: 'Define measurable KPIs and success criteria for the project',
+                    title: isTurkish ? 'Temel başarı metriklerini belgele' : 'Document key success metrics',
+                    description: isTurkish ?
+                        'Proje için ölçülebilir KPI\'lar ve başarı kriterlerini tanımlayın' :
+                        'Define measurable KPIs and success criteria for the project',
                     status: 'todo',
                     priority: 'medium',
-                    tags: ['metrics', 'planning']
+                    tags: isTurkish ? ['metrikler', 'planlama'] : ['metrics', 'planning']
                 }
             );
         } else if (category.includes('VALUE STREAM')) {
             tasks.push(
                 {
                     id: this.generateId(),
-                    title: 'Map current workflow process',
-                    description: 'Document existing process steps and identify bottlenecks',
+                    title: isTurkish ? 'Mevcut iş akışı sürecini haritala' : 'Map current workflow process',
+                    description: isTurkish ?
+                        'Mevcut süreç adımlarını belgeleyin ve darboğazları tespit edin' :
+                        'Document existing process steps and identify bottlenecks',
                     status: 'todo',
                     priority: 'high',
-                    tags: ['process', 'analysis']
+                    tags: isTurkish ? ['süreç', 'analiz'] : ['process', 'analysis']
                 },
                 {
                     id: this.generateId(),
-                    title: 'Identify dependencies and risks',
-                    description: 'List all external dependencies and potential risks with mitigation strategies',
+                    title: isTurkish ? 'Bağımlılıkları ve riskleri belirle' : 'Identify dependencies and risks',
+                    description: isTurkish ?
+                        'Tüm harici bağımlılıkları ve azaltma stratejileriyle potansiyel riskleri listeleyin' :
+                        'List all external dependencies and potential risks with mitigation strategies',
                     status: 'todo',
                     priority: 'medium',
-                    tags: ['risk', 'dependencies']
+                    tags: isTurkish ? ['risk', 'bağımlılıklar'] : ['risk', 'dependencies']
                 }
             );
         } else if (category.includes('FLOW')) {
             tasks.push(
                 {
                     id: this.generateId(),
-                    title: 'Set up Kanban board workflow',
-                    description: 'Configure columns, WIP limits, and workflow rules',
+                    title: isTurkish ? 'Kanban board iş akışını kur' : 'Set up Kanban board workflow',
+                    description: isTurkish ?
+                        'Sütunları, WIP limitlerini ve iş akışı kurallarını yapılandırın' :
+                        'Configure columns, WIP limits, and workflow rules',
                     status: 'todo',
                     priority: 'high',
-                    tags: ['setup', 'workflow']
+                    tags: isTurkish ? ['kurulum', 'iş akışı'] : ['setup', 'workflow']
                 },
                 {
                     id: this.generateId(),
-                    title: 'Define Definition of Ready/Done',
-                    description: 'Create clear criteria for when work can start and when it is complete',
+                    title: isTurkish ? 'Hazır/Bitti Tanımını Belirle' : 'Define Definition of Ready/Done',
+                    description: isTurkish ?
+                        'İşin ne zaman başlayabileceği ve ne zaman tamamlanacağına dair net kriterler oluşturun' :
+                        'Create clear criteria for when work can start and when it is complete',
                     status: 'todo',
                     priority: 'medium',
-                    tags: ['quality', 'process']
-                }
-            );
-        } else if (category.includes('PULL')) {
-            tasks.push(
-                {
-                    id: this.generateId(),
-                    title: 'Establish backlog prioritization process',
-                    description: 'Define how work items will be prioritized and pulled into the workflow',
-                    status: 'todo',
-                    priority: 'medium',
-                    tags: ['process', 'prioritization']
-                }
-            );
-        } else if (category.includes('PERFECTION')) {
-            tasks.push(
-                {
-                    id: this.generateId(),
-                    title: 'Set up feedback collection process',
-                    description: 'Create system for gathering and incorporating user feedback',
-                    status: 'todo',
-                    priority: 'medium',
-                    tags: ['feedback', 'improvement']
-                },
-                {
-                    id: this.generateId(),
-                    title: 'Define retrospective schedule',
-                    description: 'Schedule regular improvement meetings and define format',
-                    status: 'todo',
-                    priority: 'low',
-                    tags: ['retrospective', 'improvement']
-                }
-            );
-        } else if (category.includes('Team & Mindset')) {
-            tasks.push(
-                {
-                    id: this.generateId(),
-                    title: 'Conduct team skill assessment',
-                    description: 'Evaluate current skills and identify training needs',
-                    status: 'todo',
-                    priority: 'medium',
-                    tags: ['team', 'skills']
-                },
-                {
-                    id: this.generateId(),
-                    title: 'Create risk mitigation plan',
-                    description: 'Document potential risks and create mitigation strategies',
-                    status: 'todo',
-                    priority: 'high',
-                    tags: ['risk', 'planning']
+                    tags: isTurkish ? ['kalite', 'süreç'] : ['quality', 'process']
                 }
             );
         }
@@ -651,46 +729,58 @@ class IntuivaApp {
     }
     
     generateDefaultTasks() {
+        const isTurkish = this.currentLanguage === 'tr';
+        
         return [
             {
                 id: this.generateId(),
-                title: 'Define project scope and objectives',
-                description: 'Clearly document what the project will and will not deliver',
+                title: isTurkish ? 'Proje kapsamını ve hedeflerini tanımla' : 'Define project scope and objectives',
+                description: isTurkish ?
+                    'Projenin neyi teslim edeceğini ve etmeyeceğini açıkça belgeleyin' :
+                    'Clearly document what the project will and will not deliver',
                 status: 'todo',
                 priority: 'high',
-                tags: ['planning', 'scope']
+                tags: isTurkish ? ['planlama', 'kapsam'] : ['planning', 'scope']
             },
             {
                 id: this.generateId(),
-                title: 'Identify key stakeholders',
-                description: 'List all stakeholders and define communication plan',
+                title: isTurkish ? 'Ana paydaşları belirle' : 'Identify key stakeholders',
+                description: isTurkish ?
+                    'Tüm paydaşları listeleyin ve iletişim planını tanımlayın' :
+                    'List all stakeholders and define communication plan',
                 status: 'todo',
                 priority: 'medium',
-                tags: ['stakeholders', 'communication']
+                tags: isTurkish ? ['paydaşlar', 'iletişim'] : ['stakeholders', 'communication']
             },
             {
                 id: this.generateId(),
-                title: 'Set up project repository',
-                description: 'Create Git repository with proper branching strategy',
+                title: isTurkish ? 'Proje deposunu kur' : 'Set up project repository',
+                description: isTurkish ?
+                    'Uygun dallanma stratejisiyle Git deposu oluşturun' :
+                    'Create Git repository with proper branching strategy',
                 status: 'todo',
                 priority: 'high',
-                tags: ['setup', 'development']
+                tags: isTurkish ? ['kurulum', 'geliştirme'] : ['setup', 'development']
             },
             {
                 id: this.generateId(),
-                title: 'Create initial project timeline',
-                description: 'Develop high-level timeline with key milestones',
+                title: isTurkish ? 'Başlangıç proje zaman çizelgesi oluştur' : 'Create initial project timeline',
+                description: isTurkish ?
+                    'Ana kilometre taşlarıyla yüksek seviyeli zaman çizelgesi geliştirin' :
+                    'Develop high-level timeline with key milestones',
                 status: 'todo',
                 priority: 'medium',
-                tags: ['planning', 'timeline']
+                tags: isTurkish ? ['planlama', 'zaman çizelgesi'] : ['planning', 'timeline']
             },
             {
                 id: this.generateId(),
-                title: 'Define success metrics',
-                description: 'Establish KPIs to measure project success',
+                title: isTurkish ? 'Başarı metriklerini tanımla' : 'Define success metrics',
+                description: isTurkish ?
+                    'Proje başarısını ölçmek için KPI\'lar belirleyin' :
+                    'Establish KPIs to measure project success',
                 status: 'todo',
                 priority: 'high',
-                tags: ['metrics', 'planning']
+                tags: isTurkish ? ['metrikler', 'planlama'] : ['metrics', 'planning']
             }
         ];
     }
@@ -704,6 +794,7 @@ class IntuivaApp {
         
         const stats = this.kanbanBoard.getStats();
         
+        // Update stats with translations
         document.getElementById('totalTasks').textContent = stats.total;
         document.getElementById('doneTasks').textContent = stats.done;
         document.getElementById('wipTasks').textContent = stats.inProgress;
@@ -731,7 +822,7 @@ class IntuivaApp {
             .filter(tag => tag);
         
         if (!title) {
-            this.showToast('Task title is required', 'error');
+            this.showToast(this.t('error.taskTitleRequired'), 'error');
             return;
         }
         
@@ -742,7 +833,8 @@ class IntuivaApp {
             priority,
             status,
             tags,
-            createdAt: new Date().toISOString()
+            createdAt: new Date().toISOString(),
+            language: this.currentLanguage
         };
         
         // Add task to board
@@ -758,7 +850,7 @@ class IntuivaApp {
         this.taskModal.classList.remove('active');
         this.taskForm.reset();
         
-        this.showToast('Task added successfully!', 'success');
+        this.showToast(this.t('toast.taskAdded'), 'success');
         
         // Save to localStorage
         this.saveToLocalStorage();
@@ -773,14 +865,15 @@ class IntuivaApp {
         // Show loading state
         const btn = document.getElementById('regenerateBtn');
         const originalHtml = btn.innerHTML;
-        btn.innerHTML = '<div class="loading"></div> Regenerating...';
+        btn.innerHTML = `<div class="loading"></div> ${this.t('ai.regenerating')}`;
         btn.disabled = true;
         
         try {
             // 1. Prepare data to send
             const requestData = {
                 answers: this.answers,
-                questions: this.questions
+                questions: this.questions,
+                language: this.currentLanguage
             };
 
             // 2. Call YOUR backend endpoint - UPDATE THIS URL
@@ -805,7 +898,7 @@ class IntuivaApp {
                         this.kanbanBoard.addTask(task);
                     });
                 }
-                this.showToast('AI tasks regenerated!', 'success');
+                this.showToast(this.t('ai.regeneratedSuccess'), 'success');
             } else {
                 throw new Error('AI returned no tasks');
             }
@@ -820,7 +913,7 @@ class IntuivaApp {
                     this.kanbanBoard.addTask(task);
                 });
             }
-            this.showToast('Regenerated from your answers.', 'info');
+            this.showToast(this.t('ai.regeneratedFallback'), 'info');
         } finally {
             // Update stats and save
             this.updateStats();
@@ -837,7 +930,8 @@ class IntuivaApp {
         const data = {
             answers: this.answers,
             tasks: this.tasks,
-            exportedAt: new Date().toISOString()
+            exportedAt: new Date().toISOString(),
+            language: this.currentLanguage
         };
         
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -850,7 +944,7 @@ class IntuivaApp {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
         
-        this.showToast('Board exported successfully!', 'success');
+        this.showToast(this.t('toast.boardExported'), 'success');
     }
     
     toggleTheme() {
@@ -864,7 +958,35 @@ class IntuivaApp {
         const themeIcon = document.querySelector('#themeToggle i');
         themeIcon.className = newTheme === 'dark' ? 'fas fa-moon' : 'fas fa-sun';
         
-        this.showToast(`Switched to ${newTheme} theme`, 'info');
+        this.showToast(this.t('toast.themeSwitched', { theme: this.t(`theme.${newTheme}`) }), 'info');
+    }
+    
+    // Language switching
+    setLanguage(lang) {
+        if (lang !== this.currentLanguage && (lang === 'en' || lang === 'tr')) {
+            this.currentLanguage = lang;
+            localStorage.setItem('intuiva-language', lang);
+            
+            // Update UI immediately
+            this.applyLanguage();
+            
+            // Reload current screen to update content
+            if (this.currentScreen === 'questionnaire') {
+                this.loadQuestion(this.currentQuestionIndex);
+            }
+            
+            // Re-render Kanban board if it exists
+            if (this.kanbanBoard) {
+                this.kanbanBoard.renderTasks();
+            }
+            
+            this.showToast(this.t('toast.languageChanged', { language: this.t(`language.${lang}`) }), 'info');
+        }
+    }
+    
+    toggleLanguage() {
+        const newLang = this.currentLanguage === 'en' ? 'tr' : 'en';
+        this.setLanguage(newLang);
     }
     
     showToast(message, type = 'info') {
@@ -874,19 +996,14 @@ class IntuivaApp {
         toastMessage.textContent = message;
         
         // Set color based on type
-        switch (type) {
-            case 'success':
-                toast.style.borderLeftColor = 'var(--color-success)';
-                break;
-            case 'error':
-                toast.style.borderLeftColor = 'var(--color-error)';
-                break;
-            case 'warning':
-                toast.style.borderLeftColor = 'var(--color-warning)';
-                break;
-            default:
-                toast.style.borderLeftColor = 'var(--color-info)';
-        }
+        const colors = {
+            success: 'var(--color-success)',
+            error: 'var(--color-error)',
+            warning: 'var(--color-warning)',
+            info: 'var(--color-info)'
+        };
+        
+        toast.style.borderLeftColor = colors[type] || colors.info;
         
         toast.classList.add('active');
         
@@ -904,7 +1021,8 @@ class IntuivaApp {
         const data = {
             answers: this.answers,
             tasks: this.tasks,
-            lastUpdated: new Date().toISOString()
+            lastUpdated: new Date().toISOString(),
+            language: this.currentLanguage
         };
         
         try {
@@ -921,6 +1039,10 @@ class IntuivaApp {
             if (data) {
                 this.answers = data.answers || {};
                 this.tasks = data.tasks || [];
+                this.currentLanguage = data.language || this.currentLanguage;
+                
+                // Apply language before loading other data
+                this.applyLanguage();
                 
                 // Only show kanban board if there are actual tasks
                 if (this.tasks && this.tasks.length > 0) {
@@ -936,6 +1058,86 @@ class IntuivaApp {
         }
     }
 }
+
+// TRANSLATIONS object - should be in a separate file translations.js
+const TRANSLATIONS = {
+    en: {
+        'app.title': 'Intuiva - AI Project Manager',
+        'button.start': 'Get Started',
+        'button.next': 'Next',
+        'button.prev': 'Previous',
+        'button.generateBoard': 'Generate Kanban Board',
+        'button.skip': 'Skip to Board',
+        'button.clearAll': 'Clear All Tasks',
+        'button.addTask': 'Add Task',
+        'button.regenerate': 'Regenerate Tasks',
+        'button.export': 'Export Board',
+        'button.save': 'Save',
+        'button.cancel': 'Cancel',
+        'button.skipQuestion': 'Skip Question',
+        'button.notAnswer': 'Not Applicable',
+        'button.clear': 'Clear Answer',
+        'question.number': 'Q{{number}}',
+        'question.progress': 'Question {{current}} of {{total}}',
+        'ai.contacting': 'Contacting AI...',
+        'ai.generating': 'Generating Tasks...',
+        'ai.regenerating': 'Regenerating...',
+        'ai.generatedSuccess': 'AI tasks generated successfully!',
+        'ai.generatedFallback': 'Generated tasks from your answers.',
+        'ai.regeneratedSuccess': 'AI tasks regenerated!',
+        'ai.regeneratedFallback': 'Regenerated from your answers.',
+        'toast.startedEmpty': 'Started with empty board',
+        'toast.allCleared': 'All tasks cleared',
+        'toast.taskAdded': 'Task added successfully!',
+        'toast.boardExported': 'Board exported successfully!',
+        'toast.themeSwitched': 'Switched to {{theme}} theme',
+        'toast.languageChanged': 'Language changed to {{language}}',
+        'error.taskTitleRequired': 'Task title is required',
+        'confirm.clearAll': 'Are you sure you want to clear all tasks? This cannot be undone.',
+        'theme.dark': 'dark',
+        'theme.light': 'light',
+        'language.en': 'English',
+        'language.tr': 'Turkish'
+    },
+    tr: {
+        'app.title': 'Intuiva - AI Proje Yöneticisi',
+        'button.start': 'Başla',
+        'button.next': 'İleri',
+        'button.prev': 'Geri',
+        'button.generateBoard': 'Kanban Board Oluştur',
+        'button.skip': 'Board\'a Geç',
+        'button.clearAll': 'Tüm Görevleri Temizle',
+        'button.addTask': 'Görev Ekle',
+        'button.regenerate': 'Görevleri Yeniden Oluştur',
+        'button.export': 'Board\'u Dışa Aktar',
+        'button.save': 'Kaydet',
+        'button.cancel': 'İptal',
+        'button.skipQuestion': 'Soruyu Atla',
+        'button.notAnswer': 'Uygulanamaz',
+        'button.clear': 'Yanıtı Temizle',
+        'question.number': 'S{{number}}',
+        'question.progress': 'Soru {{current}} / {{total}}',
+        'ai.contacting': 'AI\'ye bağlanılıyor...',
+        'ai.generating': 'Görevler oluşturuluyor...',
+        'ai.regenerating': 'Yeniden oluşturuluyor...',
+        'ai.generatedSuccess': 'AI görevleri başarıyla oluşturuldu!',
+        'ai.generatedFallback': 'Yanıtlarınızdan görevler oluşturuldu.',
+        'ai.regeneratedSuccess': 'AI görevleri yeniden oluşturuldu!',
+        'ai.regeneratedFallback': 'Yanıtlarınızdan yeniden oluşturuldu.',
+        'toast.startedEmpty': 'Boş board ile başlatıldı',
+        'toast.allCleared': 'Tüm görevler temizlendi',
+        'toast.taskAdded': 'Görev başarıyla eklendi!',
+        'toast.boardExported': 'Board başarıyla dışa aktarıldı!',
+        'toast.themeSwitched': '{{theme}} temaya geçildi',
+        'toast.languageChanged': 'Dil {{language}} olarak değiştirildi',
+        'error.taskTitleRequired': 'Görev başlığı gereklidir',
+        'confirm.clearAll': 'Tüm görevleri temizlemek istediğinizden emin misiniz? Bu işlem geri alınamaz.',
+        'theme.dark': 'koyu',
+        'theme.light': 'açık',
+        'language.en': 'İngilizce',
+        'language.tr': 'Türkçe'
+    }
+};
 
 // Initialize the app when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
